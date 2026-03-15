@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>beachballers</title>
+  </head>
+  <body>
+    <div id="app">
+      <div id="scoreboard">
+        <div class="timer">00:00</div>
+        <div class="score-container">
+          <span class="score-player">0</span> - <span class="score-ai">0</span>
+        </div>
+        <div class="half">1st Half</div>
+      </div>
+      
+      <div id="game-view">
+        <div id="minimap" class="glass-panel">
+          <div class="minimap-grid"></div>
+          <div class="minimap-legend">
+            <span class="legend-item"><span class="dot player"></span> Player</span>
+            <span class="legend-item"><span class="dot ai"></span> AI</span>
+          </div>
+        </div>
+        
+        <div id="duel-view">
+          <div id="player-cards">
+            <div id="attacker-card" class="player-card glass-panel">
+              <div class="card-header"><span class="name">Gonzo</span> <span class="heat-text">Heat: 3</span></div>
+              <div class="stat-grid"></div>
+              <div class="heat-bar-small"><div class="heat-fill"></div></div>
+            </div>
+            
+            <div id="defender-card" class="player-card glass-panel">
+              <div class="card-header"><span class="name">Drift</span> <span class="heat-text">Heat: 3</span></div>
+              <div class="stat-grid"></div>
+              <div class="heat-bar-small"><div class="heat-fill"></div></div>
+            </div>
+          </div>
+
+          <div class="pitch-side"></div>
+          <div class="characters">
+            <div id="attacker" class="player-sprite"></div>
+            <div id="defender" class="player-sprite"></div>
+          </div>
+          
+          <div id="ui-overlay">
+            <div id="ai-intent-bubble" class="intent-bubble"></div>
+            <div id="prediction-box" class="glass-panel hidden">
+              <div class="prediction-text">Pass: 80% Success</div>
+              <div class="formula-text">15 PAS - 2 REA = 13</div>
+            </div>
+            <div id="resolution-msg" class="hidden"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="controls">
+        <div id="heat-section">
+          <div class="heat-bar"><div class="heat-fill" style="width: 30%;"></div></div>
+        </div>
+        <div id="move-carousel">
+          <!-- Cards injected here -->
+        </div>
+        <div id="exit-actions">
+          <button id="btn-hold" class="system-btn">HOLD</button>
+          <button id="btn-dribble" class="exit-btn">DRIBBLE</button>
+          <button id="btn-pass" class="exit-btn">PASS</button>
+          <button id="btn-shoot" class="exit-btn">SHOOT</button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
