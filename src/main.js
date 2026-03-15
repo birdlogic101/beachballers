@@ -357,7 +357,6 @@ class GameUI {
     this.updateScoreboard(); 
     document.querySelector('.half').innerText = `${this.match.half}${this.match.half === 1 ? 'st' : 'nd'} Half`;
 
-    // Check for match-level events
     if (this.match.phase === 'START' || this.match.phase === 'HALF_TIME' || this.match.phase === 'MATCH_OVER') {
       this.showMatchEventModal();
       return;
@@ -368,15 +367,20 @@ class GameUI {
     const intentPrefix = this.duel.isAttackerAI ? "AI Offensive Intent: " : "AI Defensive Intent: ";
     intentEl.innerText = `${possessionText} | ${intentPrefix}${this.duel.aiIntent}`;
 
-    // Toggle interaction buttons based on possession
     const exitActions = document.getElementById('exit-actions');
+    const updateBtnState = (id, action) => {
+      const btn = document.getElementById(id);
+      if (!btn) return;
+      const isUnlocked = this.duel.unlockedActions.has(action);
+      btn.disabled = !isUnlocked;
+      btn.classList.toggle('locked', !isUnlocked);
+    };
+
     if (this.duel.isAttackerAI) {
-      // Human is defending, can only TACKLE or HOLD
       document.getElementById('btn-dribble').classList.add('hidden');
       document.getElementById('btn-pass').classList.add('hidden');
       document.getElementById('btn-shoot').classList.add('hidden');
       
-      // Add Tackle button if not exists or reuse
       let tackleBtn = document.getElementById('btn-tackle');
       if (!tackleBtn) {
         tackleBtn = document.createElement('button');
@@ -388,8 +392,8 @@ class GameUI {
       } else {
         tackleBtn.classList.remove('hidden');
       }
+      updateBtnState('btn-tackle', 'TACKLE');
     } else {
-      // Human is attacking
       document.getElementById('btn-dribble').classList.remove('hidden');
       document.getElementById('btn-pass').classList.remove('hidden');
       
@@ -398,8 +402,12 @@ class GameUI {
         document.getElementById('btn-shoot').classList.add('hidden');
       } else {
         document.getElementById('btn-shoot').classList.remove('hidden');
+        updateBtnState('btn-shoot', 'SHOOT');
       }
       
+      updateBtnState('btn-dribble', 'DRIBBLE');
+      updateBtnState('btn-pass', 'PASS');
+
       if (document.getElementById('btn-tackle')) document.getElementById('btn-tackle').classList.add('hidden');
     }
 
@@ -407,11 +415,6 @@ class GameUI {
     const mainHeatFill = document.querySelector('#heat-section .heat-fill');
     if (mainHeatFill) {
       mainHeatFill.style.width = `${heatPercent}%`;
-      const label = document.querySelector('.heat-bar-label') || document.createElement('div');
-      label.className = 'heat-bar-label';
-      label.style.fontSize = '0.7rem';
-      label.innerText = `${this.duel.attacker.name} Freshness`;
-      if (!label.parentNode) mainHeatFill.parentNode.appendChild(label);
     }
   }
 
@@ -421,46 +424,54 @@ class GameUI {
     
     let activeMoves = [];
     if (this.duel.isAttackerAI) {
-      // AI is attacking, human is defending
       activeMoves = PLAYBOOK.defending;
     } else {
-      // Human is attacking, AI is defending. Get AI's defensive intent to show relevant attacking moves.
       const intentMap = { 'TACKLE': 'RED', 'PRESS': 'ORANGE', 'BLOCK': 'BLUE' };
-      const color = intentMap[this.duel.aiIntent] || 'RED'; // Default to RED if intent not found
+      const color = intentMap[this.duel.aiIntent] || 'RED';
       activeMoves = PLAYBOOK.attacking[color];
     }
 
     activeMoves.forEach(move => {
+      const check = this.duel.checkMovePrereqs(move, this.duel.attacker);
       const card = document.createElement('div');
-      card.className = 'move-card';
+      card.className = `move-card ${!check.valid ? 'disabled' : ''}`;
+      
+      let prereqHtml = '';
+      if (!check.valid) {
+        prereqHtml = `<div class="move-prereq">${check.reason}</div>`;
+      }
+
       card.innerHTML = `
-        <div class="move-name">${move.name}</div>
-        <div class="move-cost">🔥 ${move.cost} TU</div>
+        <div class="move-header">
+           <div class="move-name">${move.name}</div>
+           <div class="move-cost">🔥 ${move.cost} TU</div>
+        </div>
+        ${prereqHtml}
         <div class="move-desc">${move.desc}</div>
       `;
-      card.onclick = () => this.applyMove(move);
+      if (check.valid) card.onclick = () => this.applyMove(move);
       container.appendChild(card);
     });
   }
 
   applyMove(move) {
-    if (this.duel.touchUnits <= 0) return;
+    const res = this.duel.applyMove(move, this.duel.attacker);
+    if (!res.success) {
+      // Could show a toast here if needed
+      return;
+    }
     
-    this.duel.touchUnits -= move.cost;
-    this.duel.applyModifier({
-      targetId: this.duel.attacker.id,
-      stat: move.effect.stat,
-      value: move.effect.value,
-      duration: move.effect.duration
-    });
-    
+    // Gain Heat on move use (Standard move reward)
     this.duel.attacker.heat = Math.min(CONSTANTS.MAX_HEAT, this.duel.attacker.heat + CONSTANTS.HEAT_GAIN_MOVE);
+    
     this.updateUI();
     this.renderPlayerCard('attacker-card', this.duel.attacker);
     this.renderPlayerCard('defender-card', this.duel.defender);
     
     if (this.duel.touchUnits <= 0) {
       document.getElementById('move-carousel').classList.add('hidden');
+    } else {
+      this.renderMoves(); // Refresh moves to show new prereq status
     }
   }
 

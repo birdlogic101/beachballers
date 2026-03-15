@@ -8,6 +8,8 @@ export class DuelManager {
     this.aiIntent = null;
     this.activeModifiers = [];
     this.consecutiveHolds = 0;
+    this.unlockedActions = new Set();
+    this.ballState = 'GROUND';
   }
 
   setupDuel(attacker, defender, isAttackerAI) {
@@ -16,6 +18,8 @@ export class DuelManager {
     this.isAttackerAI = isAttackerAI;
     this.touchUnits = attacker.stats.SPE || CONSTANTS.TOUCH_UNITS_DEFAULT;
     this.activeModifiers = [];
+    this.unlockedActions = new Set();
+    this.ballState = 'GROUND';
     this.rollAIIntent(isAttackerAI);
   }
 
@@ -184,6 +188,57 @@ export class DuelManager {
       'TACKLE': 'TAC'
     };
     return map[action] || 'DRI';
+  }
+
+  checkMovePrereqs(move, actor) {
+    if (!move.prereqs) return { valid: true };
+
+    const prereqs = move.prereqs;
+    if (prereqs.minHeat && actor.heat < prereqs.minHeat) {
+      return { valid: false, reason: `Requires ${prereqs.minHeat} Heat` };
+    }
+    if (prereqs.lane !== undefined && actor.pos.x !== prereqs.lane) {
+      const laneName = prereqs.lane === 0 ? 'Inside' : 'Outside';
+      return { valid: false, reason: `Requires ${laneName} Lane` };
+    }
+    if (prereqs.ballState && this.ballState !== prereqs.ballState) {
+      return { valid: false, reason: `Requires Ball in ${prereqs.ballState}` };
+    }
+
+    return { valid: true };
+  }
+
+  applyMove(move, actor) {
+    const check = this.checkMovePrereqs(move, actor);
+    if (!check.valid) return { success: false, reason: check.reason };
+    if (this.touchUnits < move.cost) return { success: false, reason: 'Not enough TU' };
+
+    this.touchUnits -= move.cost;
+
+    // Apply unlocks
+    if (move.unlocks) {
+      move.unlocks.forEach(action => this.unlockedActions.add(action));
+    }
+
+    // Apply special effects (like Ball State)
+    if (move.effect.ballState) {
+      this.ballState = move.effect.ballState;
+    }
+
+    // Apply standard modifiers
+    if (move.effect.stat) {
+      this.applyModifier({
+        targetId: actor.id,
+        stat: move.effect.stat,
+        value: move.effect.value,
+        duration: move.effect.duration || 'turn'
+      });
+    }
+
+    // Spend Heat (if move has cost in heat - but currently Heat is only gain)
+    // actor.heat = Math.min(CONSTANTS.MAX_HEAT, actor.heat + CONSTANTS.HEAT_GAIN_MOVE);
+
+    return { success: true };
   }
 
   handleHold() {
