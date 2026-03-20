@@ -1,14 +1,27 @@
 {
   "name": "beachballers",
-  "version": "0.0.0",
-  "private": true,
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev":   "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "test":  "vitest run"
   },
+
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/birdlogic101/beachballers.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/birdlogic101/beachballers/issues"
+  },
+  "homepage": "https://github.com/birdlogic101/beachballers#readme",
+  "description": "",
   "devDependencies": {
-    "vite": "^8.0.0"
+    "vite": "^8.0.1",
+    "vitest": "^4.1.0"
   }
 }

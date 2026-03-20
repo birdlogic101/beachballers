@@ -1,0 +1,476 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Beachballers — Immersive Match Duel UI
+   Theme: Golden Sand, Deep Ocean, VS Duel
+═══════════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&display=swap');
+
+:root {
+  /* Colors */
+  --bg-deep:      #05080c;
+  --accent:       #f5c842;
+  --sand:         #c4a46b;
+  --glass:        rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --heat-hot:     #ff4820;
+
+  /* Layout */
+  --topbar-h:   60px;
+  --footer-h:   220px;
+
+  /* Typography */
+  --font: 'Outfit', sans-serif;
+}
+
+/* ── Global ──────────────────────────────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  height: 100vh;
+  font-family: var(--font);
+  background: var(--bg-deep);
+  color: #fff;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* ── Immersive Background ────────────────────────────────────────── */
+#game-bg {
+  position: fixed;
+  inset: 0;
+  background-image: url('/beach_sand_texture.png');
+
+  background-size: cover;
+  background-position: center;
+  opacity: 0.15;
+  z-index: -1;
+  filter: contrast(1.2) brightness(0.8);
+}
+
+/* ── Layout Shell ────────────────────────────────────────────────── */
+#app {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  overflow: hidden; /* Total lockdown */
+}
+
+/* ── Top Bar (Broadcast Style) ──────────────────────────────────── */
+#topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 40px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+  z-index: 30; /* Over everything */
+}
+
+#match-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+#clock {
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+
+#tu-display {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.score-block {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.score-num {
+  font-size: 36px;
+  font-weight: 900;
+  color: var(--accent);
+}
+
+.team-name {
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  opacity: 0.6;
+}
+
+/* ── Arena (Duel Scene) ─────────────────────────────────────────── */
+#arena {
+  position: absolute;
+  top: var(--topbar-h);
+  bottom: var(--footer-h);
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 1000px;
+  overflow: hidden;
+}
+
+#duel-scene {
+  width: 100%;
+  max-width: 1200px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 40px;
+}
+
+.duel-actor {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 150px; /* Super compact */
+  cursor: pointer;
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+#actor-human { transform: translateX(20px); }
+#actor-ai    { transform: translateX(-20px); }
+
+.portrait-wrap {
+  width: 150px;
+  height: 200px;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 2px solid var(--glass-border);
+  background: var(--glass);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+  position: relative;
+}
+
+.portrait-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.heat-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 60px rgba(245, 200, 66, 0);
+  transition: box-shadow 0.4s;
+}
+
+/* VS Divider */
+#vs-divider {
+  font-size: 80px;
+  font-weight: 900;
+  font-style: italic;
+  color: rgba(255,255,255,0.05);
+  text-shadow: 0 0 20px rgba(255,255,255,0.1);
+  pointer-events: none;
+}
+
+/* Stats Positioning */
+.actor-info {
+  text-align: center;
+}
+
+.p-name {
+  font-size: 28px;
+  font-weight: 900;
+  margin-bottom: 2px;
+}
+
+.p-role {
+  display: none; /* Zone info provided by minimap */
+}
+
+.stat-grid {
+  display: none; /* Hidden by default per feedback */
+  gap: 10px;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.stat-grid.visible {
+  display: flex;
+}
+
+.stat-cell {
+  background: var(--glass);
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  min-width: 60px;
+}
+
+.s-label {
+  display: block;
+  font-size: 9px;
+  font-weight: 800;
+  color: #666;
+  margin-bottom: 2px;
+}
+
+.s-value {
+  font-size: 18px;
+  font-weight: 900;
+}
+
+/* ── Heat Bars ───────────────────────────────────────────────────── */
+.heat-bar-container {
+  position: absolute;
+  bottom: 20px;
+  left: 15px;
+  right: 15px;
+  height: 14px;
+  background: rgba(0,0,0,0.7);
+  border-radius: 99px;
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  display: flex;
+  align-items: center;
+}
+
+.heat-bar-fill {
+  height: 100%;
+  width: 50%;
+  background: var(--accent);
+  transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1), background 0.4s;
+  box-shadow: 0 0 15px var(--accent);
+}
+
+.heat-value {
+  position: absolute;
+  width: 100%;
+  text-align: center;
+  font-size: 9px;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+  pointer-events: none;
+}
+
+/* ── Dilemma Display ────────────────────────────────────────────── */
+#dilemma-container {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  z-index: 5;
+}
+
+.dilemma-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.d-val {
+  font-size: 64px;
+  font-weight: 900;
+  letter-spacing: -3px;
+  line-height: 1;
+  text-shadow: 0 0 40px rgba(0,0,0,0.8);
+}
+
+.d-val span.dim {
+  opacity: 0.35;
+  font-size: 0.75em;
+  margin-left: -5px;
+}
+
+.d-label {
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--sand);
+  margin-top: 5px;
+}
+
+#vs-divider {
+  font-size: 32px;
+}
+
+/* ── Bottom Bar (3 Columns) ────────────────────────────────────── */
+#immersive-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: var(--footer-h);
+  background: linear-gradient(to top, rgba(0,0,0,0.95), transparent);
+  border-top: 1px solid var(--glass-border);
+  backdrop-filter: blur(10px);
+  display: grid;
+  grid-template-columns: 240px 1fr 240px;
+  align-items: center;
+  padding: 0 20px;
+  z-index: 30; /* Over everything */
+  overflow: visible; /* CRITICAL: Allow minimap to expand upward */
+}
+
+/* 1. Minimap (Bottom Left) */
+#footer-left {
+  height: 100%;
+}
+
+#field-minimap-v2 {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  width: 180px;
+  height: 360px; /* Big vertical UI */
+  z-index: 40; /* Above footer and arena! */
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid var(--glass-border);
+  border-radius: 16px;
+  box-shadow: 0 0 40px rgba(0,0,0,0.6);
+  backdrop-filter: blur(8px);
+  overflow: visible;
+  background-image: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+  background-size: 33.33% 16.66%;
+}
+
+/* 2. Carousel (Center) */
+#footer-center {
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+}
+
+#move-carousel {
+  display: flex;
+  gap: 15px;
+  padding: 20px;
+}
+
+.move-card {
+  width: 120px;
+  height: 160px;
+  background: #1a1f26;
+  border: 2px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 15px;
+  cursor: pointer;
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+  flex-shrink: 0;
+}
+
+.move-card:hover:not(.disabled) {
+  transform: translateY(-10px);
+  border-color: var(--accent);
+  box-shadow: 0 10px 30px rgba(245, 200, 66, 0.2);
+}
+
+.move-card.disabled { opacity: 0.3; filter: grayscale(1); }
+
+/* 3. Action Wheel (Bottom Right) */
+#footer-right {
+  display: flex;
+  justify-content: flex-end;
+}
+
+#action-wheel {
+  position: relative;
+  width: 160px;
+  height: 160px;
+}
+
+.wheel-group {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.wheel-btn {
+  position: absolute;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: #1a1f26;
+  border: 2px solid var(--glass-border);
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.wheel-btn:hover:not(:disabled) {
+  transform: scale(1.15);
+  border-color: var(--accent);
+  box-shadow: 0 0 20px rgba(245, 200, 66, 0.3);
+}
+
+.wheel-btn:disabled { opacity: 0.2; transform: scale(0.9); pointer-events: none; }
+
+/* Triangle Positions */
+#btn-dribble { top: 0; left: 50%; transform: translateX(-50%); }
+#btn-pass    { bottom: 5px; left: 0; }
+#btn-shoot   { bottom: 5px; right: 0; }
+
+#btn-press   { top: 20px; left: 20px; }
+#btn-block   { top: 20px; right: 20px; }
+
+#wheel-hover-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 14px;
+  font-weight: 900;
+  text-transform: uppercase;
+  color: var(--accent);
+  letter-spacing: 1px;
+  pointer-events: none;
+}
+
+/* ── Overlays ────────────────────────────────────────────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.95);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(20px);
+}
+
+.btn-primary {
+  margin-top: 40px;
+  padding: 16px 48px;
+  background: var(--accent);
+  color: #000;
+  border: none;
+  border-radius: 99px;
+  font-weight: 900;
+  font-family: inherit;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.btn-primary:hover { transform: scale(1.05); }
+
+.hidden { display: none !important; }

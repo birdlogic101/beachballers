@@ -1,674 +1,581 @@
-# Beachballers — Game Design Overview
+# Beachballers: Source of Truth
 
-## Core Concept
-
-- **Title:** Beachballers
-- **Theme:** Beach soccer
-- **Genre:** Roguelike
-- **Gameplay Style:** Turn-based
-
-The game focuses on **1v1 duels between players** during a beach soccer match.
-Tactical choices during duels determine ball progression, passes, shots, and
-possession changes.
+Beachballers is a turn-based, duel-based roguelike beach soccer video game. This
+document serves as the definitive reference for its mechanics, systems, and
+progression.
 
 ---
 
-# Match Structure
+## 1. Project Overview
 
-## Play states
-
-During play, the match exclusively goes duel to transition to duel to
-transition, etc. Technically, there are 2 play states: duel and transition.
-
-- Duel is a **1v1 duel moment**. The player makes tactical decisions controlling
-  the involved character.
-- Transition is the automatic moment in which the consequences of duel
-  resolution are applied (ball position updates, possession changes).
+- **Genre**: Roguelike Soccer.
+- **Theme**: Beach Soccer.
+- **Core Loop**: The game proceeds through a series of 1v1 duels until the end
+  of the match.
+- **Turn-Based**: Gameplay is turn-based. The human player always acts first and
+  can see the AI's intent.
 
 ---
 
-## Match Loop & Time System
+## 2. Core Gameplay Loop
 
-### Duration
-
-- **Total:** 2 Halves of **12 virtual minutes** each (24 minutes total).
-- **Turn Duration:** Each turn in a duel represents **1 virtual minute**.
-  - During a turn, the player can perform multiples moves. The turn ends when
-    player chooses an exit action or taps on the "Hold" (end turn) button.
-- **Game Clock:** Progression occurs during **Flow (Transition)** after each
-  duel resolution.
-
-### Match Termination
-
-- **Match Termination:**
-  - A match ends when the virtual timer reaches **24:00**.
-  - If a duel is ongoing, the match ends **immediately after the current turn's
-    resolution**. No extra time/actions allowed unless the ball is already in
-    flight (Pass/Shot resolution).
-- **Tournament Standings:**
-  - **Qualifiers (Act I):** Any loss ends the run.
-  - **Group Stage (Act II):** Progression depends on total points and ranking.
-  - **Knockouts (Act III):** Defeat ends the run.
-- **Draws:**
-  - **V1.0 Prototype:** Draws are accepted as a final result.
-  - **Tournament Standard:** Extra Time -> Penalties (Full Game Logic).
-
----
-
-## Kick-off System
-
-### Initial Kick-off
-
-- Determined **randomly** at match start.
-- **Starting Position:** Ball holder starts in their own **Midfield Zone**
-  (`x=2` for Player, `x=3` for AI).
-- The team that did not kick off the first half will kick off the **second
-  half**.
-
-### Post-Goal Kick-off
-
-- After a goal, the team that was **scored upon** kicks off.
-- **Time Cost:** Goal celebrations/reset add an automatic **1 minute** to the
-  clock.
+1. **Kickoff & Possession**: A coin toss (heads/tails) determines initial
+   possession.
+   - At kickoff, teams are positioned in row 3 (human/AI in 3C) or row 4
+     (human/AI in 4A).
+   - **Toss Winner**: Starts in possession. The first duel occurs in the
+     winner's corresponding starting zone (**3C** for Human, **4A** for AI).
+   - **Second Half**: The team that lost the initial coin toss starts in
+     possession for the second half.
+   - **After a Goal**: Possession is reset to the team that was just scored
+     upon.
+2. **Possession**: The team in possession initiates duels to progress toward the
+   opponent's goal.
+3. **The Duel**:
+   - AI Intent is revealed (e.g., Press, Block, Dribble, Pass, Shoot).
+   - Human player's move pool is filtered based on the AI intent.
+   - Human player spends **Touch Units** on **Moves** to prepare.
+   - Human player triggers an **Exit Action** (Dribble, Pass, Shoot) to resolve
+     the duel.
+4. **Resolution (The Dilemma)**:
+   - **The Dilemma Display**: Before any action, the human sees their potential
+     success range (e.g., **Pass 9-11**) directly compared to the **AI Intent**
+     (e.g., **Press 7**). This is the core strategic "puzzle".
+   - **Tactical Typography**: The base stat value is rendered **Bright** (high
+     contrast), while the volatility range is **Dimmed** (lower opacity),
+     emphasizing the most certain outcome (e.g.,
+     **9**<span style="opacity:0.4; font-size:0.8em">-11</span>).
+   - **Default Display**: The UI defaults to showing the **Pass** range.
+   - **Hover Context**: Hovering over Dribble or Shoot updates the display to
+     show that specific action's range.
+   - **Defender Advantage**: In case of a tie, the **Defending Action** always
+     wins.
+   - **Volatility**: Human player values include a **Volatility Range** (default
+     0-2). Only human actions are subject to volatility; AI actions are fixed.
+   - **AI ASYMMETRY**: The AI uses a simplified internal system (Slay The Spire
+     style). It has no Playbook, Heat, or Touch Units; its intent is a fixed
+     outcome value or flat modifier.
+5. **Outcome**: The duel results in ball movement, player rotation, or
+   possession change.
+6. **Match End**: The match duration is governed by a virtual clock.
 
 ---
 
----
-
-## Possession Logic
-
-A team is always in one of two states:
-
-### In Possession
-
-- Player controls the **ball holder**.
-
-### Out of Possession
-
-- Player controls the **defender** engaged in the duel.
-- **Visible Intent (Slay the Spire Style):** When the AI is the Ball Holder and
-  enters a "Break", the human player **always sees the AI's planned Exit
-  Action** (Dribble, Pass, or Shoot) or if it intends to **Hold**. The player
-  then uses moves to counter this specific intent.
-
----
-
-# Field Structure
-
-## Zones
-
-The field is structured **vertically** as a 1-2-2-1 grid (6 zones total):
-
-- **Player Goalkeeper Zone:** (y = 0) Bottom of the field.
-- **Midfield Row 1:** (y = 1, x = 0..1) Two field zones.
-- **Midfield Row 2:** (y = 2, x = 0..1) Two field zones.
-- **Opponent Goalkeeper Zone:** (y = 3) Top of the field.
-
-In each of the 4 central midfield zones:
-
-- There is always **one 1v1 duel between opposing players**.
-- These zones are divided into two horizontal lanes (x=0 and x=1).
-
----
-
-## Lanes & Positioning
-
-### Coordinates
-
-- **Vertical (y):** `0` (Player GK) -> `3` (AI GK)
-- **Horizontal (x):** `0` (Left) / `1` (Right)
-  - _Note: GK zones (y=0, y=3) occupy the full width but are technically handled
-    as x=0 logic-wise._
-
-### Initial Duel Positioning
-
-When a duel begins in a field zone (y=1 or y=2):
-
-- **Defender:** always starts in the **Inside Lane** (x=0 if near center, but
-  simplified to x=0 for V1.0 logic).
-- **Attacker:** randomly starts in either lane (**x=0** or **x=1**).
-
-**Coordinate System Summary:**
-
-- **Player GK:** `y = 0`
-- **Field Zones:** `y = 1, 2` (x = 0, 1)
-- **Opponent GK:** `y = 3`
-
----
-
-# Duel System
-
-## Core Principle
-
-The game is fundamentally built around **1v1 duels**, each occurring inside a
-field zone. Players perform **actions during turns** until someone chooses an
-**exit action**, which resolves the duel.
-
----
-
-# Action Categories
-
-Actions are divided into **Tactical Moves** (Playbook), **Exit Actions**
-(Resolution), and **System Actions** (UI).
-
-## 1. Exit Actions
-
-Actions that **end the duel immediately** and trigger outcome resolution (Stat
-Comparison).
-
-### If Attacking (Ball Holder)
-
-- **Dribble**
-- **Pass**
-- **Shoot**
-
-### Goalkeeper Restrictions
-
-- **Goalkeepers (GK) cannot Dribble.** They are restricted to **Pass**,
-  **Shoot**, and **Hold** actions.
-- **Save State:** After a save, the GK enters a "Reset Duel" (see Duel
-  Outcomes).
-
----
-
-## 2. System Actions
-
-These are technical buttons in the UI wheel that interact with the turn
-structure but **do not resolve the duel**.
-
-- **Hold (End Turn):** Ends the current turn. This button is used when the
-  player has no more TUs or wishes to stop acting without resolving the duel via
-  an Exit Action.
-- **Properties:**
-  - Costs **30 virtual seconds**.
-  - Does **not** trigger stat comparison.
-  - **Hold Limit:** If both players "Hold" for **2 consecutive turns**, the next
-    turn **disables the Hold button** for both; an Exit Action must be chosen.
-  - Duel continues to next turn/resolves opponent's intent.
-
----
-
-## 2. Move Actions
-
-Moves are **non-exiting duel actions**.
-
-- They allow tactical setup before resolving the duel.
-- They cost **Touch Units**.
-
-### Touch Units
-
-- Each player has **3 touch units per turn by default**.
-- **Speed Stat Interaction:** A player's **Speed (SPE)** stat equals their **max
-  Touch Units** per turn. (e.g., SPE 4 = 4 TUs).
-
-### Move Costs
-
-Moves can cost 0, 1, 2, or 3 touches.
-
----
-
-# Duel Context Variables
-
-## Ball State
-
-The ball can be **Ground** or **Air**.
-
-- **Ground (Default):** Standard state.
-- **Air:**
-  - **Interaction:** Bypasses "Ground-based" defensive modifiers.
-  - **Penalty:** Adds **+20% Volatility** to Shots and Passes.
-  - Specific moves (like Volleys or Headers) require the ball to be in the Air.
-
----
-
-## Heat Bar (Momentum)
-
-Each player has a **Heat bar** (Scale: 0–10).
-
-- **Default State:** Starts at **3** (Representing freshness).
-- **Generation:** +1 per Move Action, +2 per successful Exit Action.
-- **Post-Goal Reset:** After a goal, the scoring player's Heat resets to **3**
-  (representing the physical toll of the sprint/celebration) to prevent
-  snowballing.
-- **Decay/Penalty (Fatigue):**
-  - -1 if an Exit Action fails.
-  - -2 if a Duel is lost.
-- **Low Heat Penalty:** If Heat is **0**, all Primary Stats (DRI, PAS, SHO, TAC)
-  are reduced by **-2**.
-- **Usage:** Some moves require a minimum Heat (e.g., 5) to be usable.
-
----
-
-# Playbook System
-
-The **Playbook** represents the team's tactical move pool, shared by the entire
-team.
-
-### Playbook Structure
-
-- **Preset:** Playbooks are preset at the start of a run with basic moves.
-- **Grids:**
-  - **Attacking Playbook:** Divided into **3 grids** (Tackle Counters, Press
-    Counters, Block Counters).
-  - **Defending Playbook:** Contains **one grid** of defensive moves.
-- **Slots:** Each grid initially has **3 slots** for moves.
-- **Colors & Type:**
-  - **Color-based Moves:** Red (Tackle), Orange (Press), Blue (Block). Can only
-    be placed in their matching grid.
-  - **Colorless Moves:** Versatile moves that the player can decide to place in
-    **any** of the 3 attacking grids.
-  - **Passive Defending Moves:** All tagged **“D”** for the defending grid.
-
-### Attacking Playbook Grids
-
-1. **Tackle Counters** (Red + Colorless)
-2. **Press Counters** (Orange + Colorless)
-3. **Block Counters** (Blue + Colorless)
-
----
-
-# Move catalog (V1.0 Examples)
-
-### Attacking (Tackle Counter - Red)
-
-- **Quick Step:** +2 DRI for current turn. (Cost: 1 TU)
-- **Shield:** +3 CON vs Tackle. (Cost: 1 TU)
-- **Nutmeg:** If DRI > 12: Success bypasses defender and enters next zone.
-  (Cost: 2 TU)
-
-### Attacking (Press Counter - Orange)
-
-- **One-Two Setup:** +4 PAS for next exit action. (Cost: 1 TU)
-- **Lateral Glide:** Switch Lane. (Cost: 0 TU, requires **5 Heat**)
-- **Scoop:** Change ball state to **Air**. (Cost: 1 TU)
-
-### Attacking (Block Counter - Blue)
-
-- **Fake Shot:** +5 DRI for next move. (Cost: 1 TU)
-- **Drive:** +3 SHO for next exit action. (Cost: 1 TU)
-
-### Defending (D)
-
-- **Tighten:** -2 to Attacker DRI for 1 turn.
-- **Stand Ground:** +2 to Reaction.
-- **Aggressive Lunge:** Triggers immediate Tackle with bonus volatility.
-
----
-
-# Move Draw & Reactionary Filter (Asymmetry)
-
-The move pool available to the human player is filtered based on the **AI's
-Intent**.
-
-### When Human is Attacking
-
-The AI Defender has a passive **Defensive Intent** that determines the "Draw
-Filter" for moves:
-
-- **Tackle intent:** AI will try to Tackle at the end of the round. (Red
-  counters).
-- **Press intent:** AI stays close, forcing moves. Resolves as **Hold**. (Orange
-  counters).
-- **Block intent:** AI protects space. Resolves as **Hold**. (Blue counters).
-- **AI Simplified Logic (STS Style):** The AI does **not** have its own
-  Playbook, Heat, or Touch Units. Its intent is a fixed outcome that resolves at
-  the end of the turn if not countered.
-- **AI Flat Modifier:** Intent applies a flat stat modifier to the resolution.
-
-### When AI is Attacking
-
-The human Defender sees the AI's **Planned Exit Action**:
-
-- **Dribble / Pass / Shoot intent:** AI will resolve this action if the human
-  ends the turn (Holds).
-- **Hold intent:** AI stays stationary, duel continues. **Developer Note:** The
-  human can still Tackle an AI that chooses "Hold".
-
----
-### AI Defender Intent (When Human is Attacker)
-| Intent | Weight | Logic                                 |
-| ------ | ------ | ------------------------------------- |
-| Tackle | 40%    | Aggressively tries to win the ball.   |
-| Press  | 40%    | Standard, forces moves usage.         |
-| Block  | 20%    | Passive, protects goal/passing lane. |
-### AI Behavior (The "Brain")
-- **Intelligent Intent:**
-  - **Shoot:** Weight is 0% if the ball is in midfield (y < 2). AI will only shoot from y=2 or y=3.
-  - **Risk Awareness:** AI is more likely to **Hold** if the Attacker's primary stat is significantly lower than the human's REA.
-  - **Progression:** AI is more likely to **Pass** if it is in its own half (y=1) to clear the ball.
----
-
-# Duel Loop & Turn Order
-
-1. **Duel Start:** Human is always the first actor.
-2. **AI Preview:** AI’s intent is displayed above the AI character.
-3. **Human Turn:** Human uses Moves or an Exit Action.
-4. **Resolution/Next Turn:**
-   - **If Human uses Exit Action:** Duel resolves and ends.
-   - **If Human uses "Hold":**
-     - 1 minute passes.
-     - The AI's intent executes/resolves (if it was an Exit Action) **OR** a new
-       turn starts if both held.
-     - **Recovery:** Any "Inactive" defender from the previous turn recovers
-       their stats at this moment (start of the new 30s turn).
-
----
-
-# Exit Action Resolution
-
-Resolutions are multi-staged and subtractive.
-
-## 1. Interaction Phase
-
-- **Action Selection:** When Attacker chooses **Pass** or **Shot**.
-- **Resistance:** The active Defender's **Reaction (REA)** stat is subtracted
-  from the Attacker's base stat.
-  - `RemainingVal = AttackerStat - DefenderREA`
-- **Failure Condition:** If `RemainingVal <= 0`, the action is **blocked
-  immediately**. Possession swap occurs.
-
-## 2. Distance Phase (For Shots)
-
-- **Drop-off:** `RemainingVal = RemainingVal - DistancePenalty`.
-- **Distance Penalty (Passes & Shots):**
-  - **Shots:** -2 for each **Row (y)** away from the opponent's GK Zone.
-  - **Passes:** -1 for each **Row (y)** the ball traverses. If
-    `Stat - Distance - REA <= 0`, the pass is intercepted mid-flight by a
-    defender in an intermediate zone.
-
-## 3. Final Comparison (vs Goalkeeper)
-
-- **The Roll:**
-  `FinalVal = RemainingVal * (1 + random(-Volatility, +Volatility) / 100)`.
-- **GK Defense:**
-  `GKVal = GK.REA * (1 + random(-Volatility, +Volatility) / 100)`.
-- **Result:** If `FinalVal > GKVal` → Success (Goal).
-
-## Stat Matchups Summary
-
-| Action  | Primary Interaction | Secondary (Goalie) |
-| ------- | ------------------- | ------------------ |
-| Dribble | DRI vs REA          | N/A                |
-| Pass    | PAS vs REA          | N/A                |
-| Shoot   | SHO vs REA          | vs GK.REA          |
-| Tackle  | TAC vs CON          | N/A                |
-
----
-
-# Duel Outcomes
-
-- **Successful Dribble:** Move to **next offensive zone** (+1 y for Player, -1 y
-  for AI).
-  - **Auto-Rotation:** To maintain field balance, a teammate from the target
-    zone moves to the vacated zone to "refill" it.
-  - **Exception:** If entering a **Goalkeeper Zone**, no rotation occurs. The
-    vacated midfield square remains empty.
-- **Successful Pass:**
-  - **Selection UI:** Ultra-basic (e.g., list of teammate buttons).
-  - **Targeting:** Player selects a **specific teammate** in another zone
-    (including GK).
-  - **Landing:** Receiver's lane (Inside vs Outside) is determined **Randomly**
-    on arrival.
-  - **Defender:** The new defender always starts in the **Inside Lane**.
-- **Successful Shot:** (1) Bypasses active defender → (2) Resolves vs
-  Goalkeeper.
-  - _Distance Penalty applies if outside opponent GK zone._
-- **Goalkeeper Save (Unsuccessful Shot):**
-  - **GK Possession:** The Goalkeeper immediately gains possession.
-  - **Reset Duel:** Triggers a special duel in the GK zone with **no active
-    defender**.
-  - **Opponent State:** If the attacker was physically in the GK zone during the
-    shot, they become **"Inactive"** (TAC/REA=0) for the GK's first turn.
-  - **GK Options:** The GK can only choose **Pass**, **Shoot**, or **Hold** (No
-    Dribble).
-  - **GK Shot Clock:** If the GK chooses **Hold** for **3 consecutive turns**,
-    the "Free" state expires. The opponent's Striker (highest SHO) immediately
-    engages in a duel with the GK. The GK must then choose a move or exit
-    action.
-- **Unsuccessful Pass/Dribble:**
-  - **Interception:** If a Pass fails (`RemainingVal <= 0`), the ball is caught
-    by an **intercepting defender**.
-  - **Interceptor Selection:** The ball is caught by the teammate of the engaged
-    defender located in the Row (y) where the `RemainingVal` reached zero or
-    below.
-  - **Result:** Possession swaps. A new duel starts immediately with the
-    interceptor as the new Attacker.
-- **Successful Tackle:** Tackler gains possession + New duel in next offensive
+## 3. The Field & Positioning
+
+### Grid System
+
+The field is a vertical grid divided into 6 rows (1-6) and 3 columns (A-B-C).
+
+- **The Grid**:
+  - **Row 1**: Human Goal (1B: **huGK** / Role: GK).
+  - **Row 2**: Defensive Zone (2B: **huCB** / Role: CB).
+  - **Row 3**: Midfield Defensive (3A or 3C: **huLB** or **huRB**).
+  - **Row 4**: Midfield Offensive (4A or 4C: **huLW** or **huRW**).
+  - **Row 5**: Attacking Zone (5B: **huCF** / Role: CF).
+  - **Row 6**: AI Goal (6B: **aiGK** / Role: GK).
+- **Temporal Roles**: A player's role is determined strictly by their current
   zone.
-- **Unsuccessful Tackle:** Tackler becomes **"Inactive"** for the remainder of
-  the turn.
-  - **Effect:** The defender's Primary Stats (TAC, REA) are reduced by **-50%**
-    for the next exit action or move resolution in that duel.
+  - If a **Human Player** is in 3A/3C, they have the role **LB/RB**.
+  - If an **AI Player** is in 3A/3C, they have the role **RW/LW** (attacking Row
+    1).
+  - **Requirement Logic**: All Heat/Stat requirements are tied to the **Role**
+    currently held by the player in that zone.
+
+### Positioning & Formation
+
+- **Formation**: Staggered "Losange" (1 player per row). Both teams use a 1+4
+  squad (1 GK + 4 field players).
+- **1v1 Constriction (Dynamic Duel Shifting)**: The system ensures duels are
+  always 1v1.
+- **GK Zone Restriction**: Only the active attacker in a 1v1 Goal Duel can enter
+  the opponent's GK zone (1B/6B).
+- **Reset**: All players return to their kickoff zones after every goal.
+
+### Kickoff player positions
+
+- Both teams have 5 players on the field.
+- Every player is assigned to a kickoff zone.
+  - The Human GK (huGK) is assigned to 1B.
+  - The AI GK (aiGK) is assigned to 6B.
+  - The Human CB (huCB) is assigned to 2B.
+  - The AI CB (aiCB) is assigned to 5B.
+  - The Human RB (huRB) is assigned to 3C.
+  - The AI RB (aiRB) is assigned to 4A.
+  - The Human LW (huLW) is assigned to 4A.
+  - The AI LW (aiLW) is assigned to 3C.
+  - The Human CF (huCF) is assigned to 5B.
+  - The AI CF (aiCF) is assigned to 2B.
+
+### Player position determines player role
+
+- Every zone gives the player a role.
+  - If human player is in 1B, they are a GK.
+  - If human player is in 2B, they are a CB.
+  - If human player is in 3A, they are a LB.
+  - If human player is in 3C, they are a RB.
+  - If human player is in 4A, they are a LW.
+  - If human player is in 4C, they are a RW.
+  - If human player is in 5B, they are a CF.
+  - If human player is in 6B, they are a GK.
+  - If AI player is in 1B, they are a GK.
+  - If AI player is in 2B, they are a CB.
+  - If AI player is in 3A, they are a LB.
+  - If AI player is in 3C, they are a RB.
+  - If AI player is in 4A, they are a LW.
+  - If AI player is in 4C, they are a RW.
+  - If AI player is in 5B, they are a CF.
+  - If AI player is in 6B, they are a GK.
 
 ---
 
-# Team Rotation & Movement
+## 4. Player Anatomy
 
-To ensure the team maintains a balanced formation (1-2-2-1), teammates
-automatically rotate to fill vacancies during ball progression.
+### Base Stats
 
-### 1. Vertical Progression (Dribble)
+Every player has five primary statistics, plus Speed:
 
-- When the Ball Holder progresses from one midfield row to the next (e.g., Row 1
-  -> Row 2):
-  - **Simple Swap:** If a teammate is already in the target zone, they
-    automatically move to the zone the Ball Holder just vacated.
-  - **Result:** Balanced 1-2-2-1 formation is maintained.
+- **DRI (Dribbling)**: Used for Dribble exit actions.
+- **PAS (Passing)**: Used for Pass exit actions.
+- **SHO (Shooting)**: Used for Shoot exit actions.
+- **AGG (Aggression)**: Used for Press defensive actions.
+- **COM (Composure)**: Used for Block defensive actions.
 
-### 2. Goal Attack Exception
+### Speed & Touch Units
 
-- When a player progresses from the final midfield row into the **Goalkeeper
-  Zone**:
-  - No teammate rotates forward or backward.
-  - The midfield square previously occupied by the Ball Holder remains
-    **empty**.
-  - This represents a "Breakaway" where the teammates hold their defensive
-    positions.
+- **SPE (Speed)**: Defines the maximum **Touch Units (TU)** a player can spend
+  per turn.
+- **Minimum Value**: A player always has at least **3 Touch Units**, even if
+  their SPE stat is lower.
 
-### 3. Positional Reset
+### Volatility
 
-- After a Goal or a Half-time reset:
-  - All players return to their default zones based on the **Kick-off System**.
+Human player stats have a volatility range (Default: 0-2).
 
----
+- **Player Stats**: Display **Fixed Base Stats** only (e.g., `11`) for visual
+  clarity.
+- **Dilemma Display**: Displays the **Potential Output Range** (e.g., `11-13`)
+  using "Dimmed Volatility" typography.
+- **Role**: Only human actions are subject to volatility; AI actions are fixed.
 
-- **Team:** 5 players, no substitutes.
-- **Recruitment:** Beach Bar or Special Events. A new recruit **replaces** an
-  existing player.
-- **Stats:** DRI, PAS, SHO, TAC, REA, CON (GKs have the same stats).
+### Heat System (Prototype V1.0)
 
-## Signature Moves
+- **Bar Range**: Min -5 (Cold) | Max 10 (On Fire).
+- **Start**: Default 0 at match kickoff. Persistent during match.
+- **Increases**: Successful actions (+1) and certain moves.
+- **Decreases**: Failed actions (-1) and certain moves.
+- **Requirement**: Heat acts as a threshold for many actions (e.g., Shooting
+  access).
+- **GK Heat**: The human GK accumulates Heat exclusively through **saves** (+1
+  per save). The GK also participates in field duels and therefore can gain/lose
+  Heat through normal field actions.
+- **UI Representation**: Displayed as large, prominent bars with a **numeric
+  value overlay** (e.g., "HEAT: +2").
 
-- Unique techniques tied to specific players.
-- Apply **only to exit actions**.
-- Innate or to unlock during progression.
+### Experience (XP) & Leveling
 
----
-
-# Roguelike Progression
-
-## Campaign Acts
-
-1. **Qualifiers**
-2. **Group Stage**
-3. **Knockouts**
-
-## Day System
-
-- **Cycle:** Morning (Select Activity) → Afternoon (Resolve) → Transition (Next
-  Day).
-- **Events:** Match, Training (+1 random stat), Beach Bar (Recruit), Special
-  Event.
-
-## Playbook Expansion & Customization
-
-- **Move Acquisition:** New moves (colored or colorless) can be acquired as
-  rewards or purchased.
-- **Manual Assignment:** When a player acquires a move, they decide which grid
-  (and slot) to place it in. Colorless moves offer maximum flexibility here.
-- **Slot Expansion:** Unlock additional slots in any of the 4 grids to increase
-  tactical options per turn.
-- **Upgrades:** Transform or upgrade existing moves in the playbook.
+- **XP Gains**:
+  - Goal Scored: +20 XP (Scorer).
+  - Successful Assist: +20 XP (Passer).
+  - Successful Action (Dribble/Pass/Press/Save): +5 XP.
+  - Match Win: +50 XP (all participating players).
+  - Match Draw: +20 XP (all participating players).
+- **Leveling**:
+  - Thresholds: 1->2 (100 XP), 2->3 (250 XP), etc.
+  - Rewards: +1 to a random primary stat per level.
+  - Level Cap: 20 (V1.0).
 
 ---
 
-# Experience & Leveling Up
+## 5. Duel Mechanics
 
-Players grow during the campaign based on their match performance.
+### Lanes
 
-### 1. Earning Experience (XP)
+Each duel occurs in a specific lane:
 
-- **Goal Scored:** +20 XP (Scorer).
-- **Successful Assist:** +15 XP (Passer).
-- **Successful Tackle/Save:** +10 XP.
-- **Successful Action (Dribble/Pass):** +2 XP.
-- **Match Completion:**
-  - **Win:** +50 XP to all participating players.
-  - **Draw/Loss:** +20 XP to all participating players.
+- **Inside Lane**: Closest to the center of the field. Goalkeepers are always
+  "Inside" (visually center of goal).
+- **Outside Lane**: Closest to the sidelines.
+- **Assignment**: Defender is always assigned to the Inside lane; Attacker is
+  randomly assigned either Inside or Outside.
 
-### 2. Leveling Up
+### AI Intent & Reactionary Filter (STS Style)
 
-- **Threshold:** Level 1 -> 2 (100 XP), Level 2 -> 3 (250 XP), etc.
-- **Rewards:** Upon leveling up, the player gains **+1 to a random primary
-  stat**.
-- **Level Cap:** V1.0 Level cap is **5**.
+The moves available to the human depend on the AI's current intent:
 
----
+- **AI Intent: Press** -> Load **Red** moves (Press-counters).
+- **AI Intent: Block** -> Load **Blue** moves (Block-counters).
+- **AI Intent: Attack (Dribble/Pass/Shoot)** -> Load **Gray** moves (Defense).
 
-# UI Design & Feedback
+### Move Pool Loading
 
-## 1. Field Minimap
+The Carousel UI displays **all moves** currently available in the playbook that
+match the AI intent filter. No limited hand-size for Prototype V1.0.
 
-- A vertical 1-2-2-1 grid visualization showing the location of the current
-  duel.
-- **Structure:**
-  - Top:AI Goal area.
-  - Middle: 2x2 grid for midfield duels.
-  - Bottom: Player Goal area.
-- **Indicator:** Highlight the active zone (x, y).
-
-## 2. Duel HUD (Player Cards)
-
-- **Left Card (Player):** Name, Icon, Stat sheet (DRI, PAS, SHO, TAC, REA, CON),
-  and **Heat Bar**.
-- **Right Card (Opponent):** AI Name, Icon, Stat sheet, and **Heat Bar**.
-- **Visible Intent:** AI's current intention (e.g., "AI planning to SHOOT")
-  displayed prominently above the opponent's card.
-
-## 3. Action Prediction
-
-- When hovering/selecting an action (Pass/Shot/Dribble), the UI displays:
-  - **Estimated Success %**
-  - **Predicted Result Value** (e.g., "14 SHO - 8 REA = 6 Total")
-
-## 4. Visual Flourish
-
-- **Move Cards:** Transparent squares with Icon, Title, and One-line effect.
-- **Display:** Carousel UI at bottom-center of the screen.
+- **Progression Rewards**:
+  - **Tier-1**: Replace an existing move.
+  - **Tier-2**: Add a new move to the playbook.
 
 ---
 
-# Prototype Implementation Notes (AI Developer Focus)
+## 6. Action Systems
 
-### 1. The Action Loop
+### 6.1. Move Actions (Setup)
 
-To avoid development "struggles", follow this execution order in code:
+Non-exiting duel actions used for tactical setup.
 
-1. **Enter Zone:** Check ball state and lane positions.
-2. **Reveal Intent:** Roll and show AI intent (e.g., "AI is planning to SHOOT"
-   or "AI is ready to TACKLE").
-3. **Drafting:** Filter Human Playbook for moves that counter that specific AI
-   intent color (Red/Orange/Blue) or action type.
-4. **Player Turn:** Human uses TUs for Moves.
-5. **Phase Resolution:**
-   - If **Exit Action** used: Resolve stats and end duel.
-   - If **Hold** used: Cost 30s, then execute AI's intent (if Exit) or start a
-     new round.
+- **Cost**: 0, 1, 2, 3, or X Touch Units (limited by SPE/Minimum 3).
+- **Requirements**: Heat Threshold (Air/Ground state ignored for Prototype
+  V1.0).
+- **Effects**: Buffs (Stat bonuses for duel or match), Debuffs (value
+  reduction).
+- **Worldclass Moves**: Must provide tradeoffs, interact with Heat, or change
+  based on context (lane/zone).
 
-### 2. State Management Strategy
+### 6.2. Exit Actions (Attacking)
 
-- **Modifier Persistence:**
-  - **Moves/Buffs:** Persist across "Hold" turns within the **same duel**.
-  - **Expiration:** All buffs/debuffs are cleared when the duel ends (via Exit
-    Action resolution or Possession Swap).
-- **Next Action Modifiers:** Expire at the end of the round regardless of
-  whether the action occurred (Rewards/Punishes the "Hold" strategy).
-- **Stacking:** Buffs of the **same name do not stack** (highest value applies).
+Exit actions end the turn immediately. They **do not** cost Touch Units.
 
-### Tactical Effects
+- **Dribble**:
+  - **Constraint**: Locked if max human value < AI intent value, or if in the
+    opponent's GK zone (6B).
+  - **GK Rule**: Dribbling is **never possible** against a Goalkeeper (Zone 6B).
+    The Dribble button is permanently locked in this zone.
+- **Pass (The Dynamic System)**:
+  - **Availability**: Available in Rows 1-5. **Locked in Zone 6B** (Opponent's
+    GK zone).
+  - **GK Rule (6B)**: Once in a Goal Duel, the attacker cannot pass. They must
+    resolve with a **Shoot** action or potentially lose the ball to a GK tackle.
+  - **Targeting (The Heat Driver)**: Your **current Heat** determines the target
+    row:
+    - **Heat < 0**: Pass back `X` rows (Capped at Row 1/Human GK).
+    - **Heat > 0**: Pass forward `X` rows (Capped at Row 6/AI GK).
+    - **Heat = 0 (The Lane Switch)**: Pass to the opposite column in the same
+      row.
+  - **Rotation Scenarios (The Ripple Effect)**:
+    - **Logic**: A progression creates a vacuum. Teammates shift rows to fill it
+      (The Ripple).
+    - **Scenario A: High-Res Dribble (4C → 5B)**:
+      - **Action**: **huRW** dribbles from 4C to 5B.
+      - **Result**:
+        - **huRW**: 4C → **5B** (Attacker). **aiCB** remains in 5B.
+        - **huCF**: 5B → **4A** (Vacuum fill). **aiRW** moves from 3A to 4A.
+        - **huCB**: 2B → **3C** (Support Shift). **aiLB** moves from 4C to 3C.
+        - **huLB**: 3A → **2B** (Cover Shift). **aiCF** remains in 2B.
+    - **Scenario B: huLB passes at Heat 0 (3A → 3C)**:
+      - **Action**: **huLB** passes from 3A to receiver in 3C.
+      - **Result**:
+        - **huLB**: 3A → **4A**. **aiRW** moves from 3A to 4A.
+        - **huRW** (receiver): 4C → **3C** (ball holder). **aiLB** moves from 4C
+          to 3C.
+        - **huCB**: remains in 2B. **aiCF** remains in 2B.
+        - **huCF**: remains in 5B. **aiCB** remains in 5B.
+    - **Scenario C: huCF (5B) passes at Heat 0 (The Tactical Hand-off)**:
+      - **Action**: **huCF** passes from 5B to 5B (remaining in the zone).
+      - **Result**:
+        - **huRW** (receiver): 4C → **5B** (new CF). **aiCB** stays in 5B.
+        - **huCF** (passer): 5B → **4A** (new LW). **aiRW** moves from 3A to 4A.
+        - **huCB**: 2B → **3C** (new RB). **aiLB** moves from 4C to 3C.
+        - **huLB**: 3A → **2B** (new CB). **aiCF** stays in 2B.
+    - **Scenario D: huCB (2B) passes at Heat 0 (The Defensive Hand-off)**:
+      - **Action**: **huCB** passes from 2B to 2B (remaining in the zone).
+        Wide-range Ripple.
+      - **Result**:
+        - **huLB** (receiver): 3A → **2B** (new CB). **aiCF** stays in 2B.
+        - **huCB** (passer): 2B → **3C** (new RB). **aiLB** moves from 4C to 3C.
+        - **huCF**: 5B → **4A** (new LW). **aiRW** moves from 3A to 4A.
+        - **huRW**: 4C → **5B** (new CF). **aiCB** stays in 5B.
+    - **Scenario E: huGK (1B) passes at Heat 0 (The Roll-out)**:
+      - **GK rules**: the GK's worst pass option is to pass to 2B. Even if his
+        Heat is below 1, he will always pass to 2B.
+      - **Action**: **huGK** passes from 1B to 2B.
+      - **Result**: **Static**. huGK remains in 1B. huCB remains in 2B. (Fixed
+        GK role).
 
-- Always recalculate "Effective Stats" (Base + Modifiers) before a resolution.
-- **V1.0 Scale:** Stats range from **1 to 20** (Base) / **30** (With Buffs).
+- **Shoot**:
+  - **Heat Requirements**: Access depends on zone:
+    - GK (own) zone: 6 Heat. | CB zone: 5 Heat. | LB/RB zone: 4 Heat.
+    - LW/RW zone: 3 Heat. | CF zone: 2 Heat. | Opponent's GK zone: 1 Heat.
+  - **Constraint**: Locked if max human value < AI intent value.
 
-### 3. Coordinate Handling
+### 6.3. Exit Actions (Defending)
 
-- Use `x-distance` for shot penalties.
-- `GK Zone` special logic: If `Attacker.Foot == "Right"`, `y=1` (Outside) is the
-  right side of the field.
+- **Press**:
+  - **Requirement**: Minimum 1 Heat.
+  - **Resolution**: Success wins the ball immediately. Failure allows the AI to
+    complete its action at full value.
+- **Block**:
+  - **Requirement**: Always available.
+  - **Effect on Dribble**: Success reduces DRI to 0 for next resolution.
+  - **Effect on Pass**: Success sets value to 0 and retrogrades by 2 rows.
+  - **Effect on Shoot**: Success reduces SHO to 0 (ball reaches GK safely).
 
-### 4. Rendering & Animation (Assumed Constraints)
+### 6.4. Goalkeeper System (Shot Defense)
 
-- **Duel (Break) View:** Camera zooms into a side-view 2D perspective.
-- **Transition (Flow) View:** Camera pulled back to show full field top-down or
-  isometric.
-- **Animation States:** Simple transforms (Flip, Bounce, Slide). No complex rig
-  animation required for V1.0.
+When an attacker shoots, the Goalkeeper (GK) defends. The interaction depends on
+whether the attacker is in the GK's zone.
 
-### 5. Input & State Blocking
+#### 1v1 Goal Duel (Attacker in 1B or 6B)
 
-- **The "Lock":** Input is entirely disabled during Transition and during AI
-  intent rolling.
-- **Carousel Interaction:** Selecting a card consumes TUs immediately.
+A full duel sequence occurs. **The AI GK's intent (Press or Block) is revealed
+at the start of the duel**, allowing the human to counter it with Moves.
+Goalkeepers use **AGG** for Press and **COM** for Block.
 
-### 6. Data Persistence (The Run State)
+- **Press (The Gamble)**:
+  - **Attributes**: Higher volatility range (e.g., 0-4).
+  - **Success**: No goal. The GK claims the ball and enters a **1v0 state** in
+    his zone (The big payout).
+  - **Failure**: Goal scored. Higher Heat/morale penalty.
+- **Block (The Tax)**:
+  - **Attributes**: Lower volatility range (e.g., 0-1).
+  - **Success**: No goal. The GK claims the ball but enters a **new 1v1 duel**
+    in his zone against the same attacker (The 'tax' of staying on the line).
+  - **Failure**: Goal scored. Normal penalty.
 
-- The entire run is stored in a single `gameState` object:
+#### Reaction Save (Attacker Outside 1B or 6B)
 
-  ```json
-  {
-      "currentDay": 4,
-      "sandDollars": 120,
-      "roster": [...],
-      "playbook": { "attacking": [...], "defending": [...] },
-      "campaignProgress": "Act 1",
-      "activeMatch": null
-  }
-  ```
+If an attacker shoots from Row 2, 3, 4, or 5 (and passes the field-player's
+block), the GK triggers a **Reaction Save**. This is a simplified resolution to
+keep the match flow fast.
 
-### 7. Asset Placeholders
+- **The Logic**:
+  - GK uses **COM** + default volatility (if Human).
+  - No distance bonuses (handled via Heat requirements).
+  - **Asymmetry**:
+    - **Human GK**: Resolution = `Base Stats + Volatility Roll` vs
+      `Fixed AI Shot`.
+    - **AI GK**: Resolution = `Fixed AI Stats` vs
+      `Human Shot + Volatility Roll`.
+  - **Result**:
+    - **Save**: Ball is caught or parried. GK enters a **1v0 state** in his
+      zone.
+    - **Goal**: Shot value exceeds GK defense.
 
-- Use **CSS-only graphics** or simple SVGs for player icons.
-- Sound effects are triggered on: `Card Select`, `Resolution Success`,
-  `Resolution Fail`, and `Goal`.
+> [!NOTE]
+> **Defending the Duel First**: The field-player's defensive action
+> (Press/Block) always resolves **before** the shot reaches the GK. A successful
+> field-block cancels the shot entirely.
+
+### 6.5. Signature Skills
+
+Unique to **specific players only** (not every player has one). Signature Skills
+**trigger on usage of Exit Actions only**. They modify or buff the final
+resolution of a specific exit action (Dribble, Pass, Shoot).
+
+**Prototype V1.0 Skill Roster**:
+
+- **huCF — "Clinical"** _(Shoot)_: On Shoot exit, add +3 flat bonus to the final
+  SHO value used in resolution.
+- **huCB — "Sweeper"** _(Block)_: On a successful Block, gain +1 Heat (instead
+  of the standard 0 for a defensive action).
+- **aiGK — "Wall"** _(Block)_: On Block, the AI GK's volatility range is reduced
+  to 0 (fixed value). Makes the AI GK extremely consistent on block saves.
 
 ---
 
-# Technical Data Structures (Assumptions)
+## 7. Movement & Rotation Scenarios due to Dribble
 
-### Player Object
+### Core Principles
 
-```json
-{
-    "id": "gonzo_01",
-    "name": "Gonzo",
-    "stats": {
-        "DRI": 14,
-        "PAS": 10,
-        "SHO": 12,
-        "TAC": 8,
-        "REA": 11,
-        "CON": 13,
-        "SPE": 3
-    },
-    "heat": 0,
-    "lane": 0,
-    "signatureMoves": ["Venom_Shot"],
-    "isGK": false
-}
+- **Trigger**: Successful Dribble only. Failed Dribble = no movement.
+- **Column Rules for Dribble Target**:
+  - From **2B** → **3A** (if 3A is free) or **3C** (if 3A is occupied).
+  - From **3A** → **4A**. From **3C** → **4C**. (Column is preserved.)
+  - From **4A** → **5B**. From **4C** → **5B**. (Both converge to center.)
+  - From **5B** → **6B**. (Goal Duel — special rules apply, see §7.4.)
+- **AI Coverage**: After each human cascade, the AI team re-distributes so every
+  row that has a human player also has exactly one AI player (1v1 preserved). AI
+  players are not strict man-markers — they fill the open rows as a unit after
+  the human chain resolves.
+- **AI Dribble (Mirror Rule)**: When the AI dribbles successfully, the exact
+  same rotation system applies in reverse. The AI team cascades toward Row 1
+  (their attacking direction) and the human team re-distributes to maintain 1v1
+  coverage at every occupied row. All column rules and cascade depths are
+  identical, just mirrored along the vertical axis of the field.
+
+**Reference kickoff state** (base for all scenarios below):
+
+```
+Row 1: huGK(1B)   | –
+Row 2: huCB(2B)   | aiCF(2B)
+Row 3: huRB(3C)   | aiLW(3C)
+Row 4: huLW(4A)   | aiRB(4A)
+Row 5: huCF(5B)   | aiCB(5B)
+Row 6: –          | aiGK(6B)
 ```
 
-### Recruitment Costs
+---
 
-- **Common:** 50 Sand Dollars (Avg stats 8-10)
-- **Rare:** 150 Sand Dollars (Avg stats 11-13)
-- **Legendary:** 500 Sand Dollars (Avg stats 14+)
+### 7.1. huCB (2B) Dribbles Successfully
+
+Full 4-player cascade. huCB advances, the chain ripples through the whole team.
+
+- **Action**: huCB dribbles 2B → **3A** (3A is free; 3C is occupied by huRB).
+  - If 3A is occupied, huCB dribbles 2B → **3C** instead.
+- **Result**:
+  - **huCB**: 2B → **3A** (LB role). **aiRB** moves from 4A → **3A**.
+  - **huRB**: 3C → **2B** (drops back). **aiCF** stays in **2B**.
+  - **huLW**: 4A → **5B**. **aiCB** stays in **5B**.
+  - **huCF**: 5B → **4C** (drops back). **aiLW** moves from 3C → **4C**.
+- **Post-state**:
+  ```
+  Row 2: huRB(2B)  | aiCF(2B)
+  Row 3: huCB(3A)  | aiRB(3A)
+  Row 4: huCF(4C)  | aiLW(4C)
+  Row 5: huLW(5B)  | aiCB(5B)
+  ```
+
+### 7.2. huRB (3C) Dribbles Successfully
+
+2-player cascade. Only the row-3 and row-4 players shift; rows 2 and 5 stay.
+
+- **Action**: huRB dribbles 3C → **4C**.
+- **Result**:
+  - **huRB**: 3C → **4C**. **aiCB** moves from 5B → **4C**.
+  - **huLW**: 4A → **3A** (drops back). **aiCF** moves from 2B → **3A**.
+  - **huCB**: remains in **2B**. **aiLW** moves from 3C → **2B**.
+  - **huCF**: remains in **5B**. **aiRB** moves from 4A → **5B**.
+- **Post-state**:
+  ```
+  Row 2: huCB(2B)  | aiLW(2B)
+  Row 3: huLW(3A)  | aiCF(3A)
+  Row 4: huRB(4C)  | aiCB(4C)
+  Row 5: huCF(5B)  | aiRB(5B)
+  ```
+
+### 7.3. huLW (4A) Dribbles Successfully
+
+Full 4-player cascade. Produces the same post-state as §7.1.
+
+- **Action**: huLW dribbles 4A → **5B**.
+- **Result**:
+  - **huLW**: 4A → **5B** (CF role). **aiCB** stays in **5B**.
+  - **huCF**: 5B → **4C** (drops back). **aiLW** moves from 3C → **4C**.
+  - **huCB**: 2B → **3A**. **aiRB** moves from 4A → **3A**.
+  - **huRB**: 3C → **2B** (drops back). **aiCF** stays in **2B**.
+- **Post-state**:
+  ```
+  Row 2: huRB(2B)  | aiCF(2B)
+  Row 3: huCB(3A)  | aiRB(3A)
+  Row 4: huCF(4C)  | aiLW(4C)
+  Row 5: huLW(5B)  | aiCB(5B)
+  ```
+
+> [!NOTE]
+> §7.1 and §7.3 always produce identical post-states because both trigger a full
+> 4-player cascade in the same direction.
+
+### 7.4. huCF (5B) Dribbles Successfully → Goal Duel
+
+No cascade. All other players hold their positions. Row 5 is left vacant.
+
+- **Action**: huCF dribbles 5B → **6B** (enters 1v1 Goal Duel vs aiGK).
+- **Result**:
+  - **huCF**: 5B → **6B**. **aiCB** stays in **5B** (no human to mark).
+  - **huLW**: stays in **4A**. **aiRB** stays in **4A**.
+  - **huRB**: stays in **3C**. **aiLW** stays in **3C**.
+  - **huCB**: stays in **2B**. **aiCF** stays in **2B**.
+- **Post-state** (during Goal Duel):
+  ```
+  Row 2: huCB(2B)  | aiCF(2B)
+  Row 3: huRB(3C)  | aiLW(3C)
+  Row 4: huLW(4A)  | aiRB(4A)
+  Row 5: –         | aiCB(5B)
+  Row 6: huCF(6B)  | aiGK(6B)
+  ```
+- **After 6B Resolution**: huCF returns to 5B. Row 5 vacancy is cleared.
+
+### 7.5. 1v0 State (GK Ball Possession)
+
+A **1v0 state** occurs when a GK wins the ball via a **Press save** or a
+**Reaction Save**. Special rules apply:
+
+- **No Defender**: No AI intent is shown. The Move carousel is **hidden**.\
+  The ball-holder goes directly to Exit Actions (no Touch Unit setup phase).
+- **Available Exit Actions**:
+  - **Pass** (default): GK passes to 2B (the CB). Formation is static — no
+    Ripple.
+  - **Dribble**: GK dribbles forward.
+  - **Shoot**: Requires the GK zone Heat threshold (6 Heat).
+
+---
+
+## 8. Match Clock & Time System
+
+- **Duration**: 2 Halves of 12 virtual minutes (24 minutes total).
+- **Progression**: The 1-minute increment happens **when an Exit Action button
+  is pressed**.
+- **Termination**: Match ends at 24:00. Ongoing duels resolve first if the ball
+  is in flight.
+- **Draws**: Accepted in V1.0 Prototype.
+
+---
+
+## 9. Roguelike Progression
+
+### Campaign Acts
+
+1. **Act I: The Grind**: Pre-season amateur league.
+   - _Context_: Team is broke and needs cash for fees.
+   - _Win Condition_: Reach the "Cash Threshold" to pay for league registration.
+   - _Loss Condition_: The Act ends without the team having enough cash.
+2. **Act II: The Crown**: Local league play.
+   - _Progression_: Final ranking determines if you advance to the next stage
+     (must be first).
+3. **Act III: The Legend**: Nation's Cup.
+   - _Atmosphere_: Professional opponents.
+   - _Progression_: Knockouts. Defeat ends the run.
+
+### Day System & Events
+
+- **Cycle**: Morning (Activity Selection) -> Afternoon (Resolution) ->
+  Transition.
+
+---
+
+## 10. UI & Visual Experience
+
+### 10.1. Field Minimap
+
+- A vertical 180×320 pitch grid matching the aspect ratio of a beach soccer
+  field.
+- **Ball Marker**: A dedicated white glowing marker represents the ball.
+- **Markers**: Blue dots for Human team, **Orange** dots (#ff9f43) for AI team.
+- **Entity Offsets**: When multiple entities (Human, AI, Ball) occupy the same
+  zone, they are rendered with small spatial offsets to ensure all are visible.
+
+### 10.2. Duel HUD (Player Cards)
+
+- **Left Card**: Human Name, Icon, Stat sheet, and **Heat Bar** (styled as a
+  high-fidelity progress bar).
+- **Right Card**: AI Name, Icon, Stat sheet, and **Heat Bar**.
+- **AI Intent**: Current intention (Action + Fixed Value) displayed in big,
+  prominent typography.
+- **The Dilemma**: The central prime UI value showing "Human Action [Range] vs
+  AI Intent [Value]".
+- **GK Save State**: After a save, the GK enters a "Reset Duel" state where they
+  are the ball-holder in their own zone.
+
+### 10.3. Visual Flourish
+
+- **Move Cards**: Carousel UI at bottom-center of the screen.
+
+---
+
+## 11. Developer Notes & Edge Cases
+
+- **Stat Format**: Stats stored as `Base-Max` (e.g., `11-13`).
+- **Resolution Sequence**: (1) Human rolls volatility → gets final attack value.
+  (2) Compare rolled value vs AI fixed intent value. (3) Apply tie-break rule.
+- **Tie-Break**: Defending value `>=` Attacking value = Success for the
+  Defender. (Attacker must strictly exceed Defender value to win).
+- **Press at Heat 0**: Press requiring minimum 1 Heat on turn 1 (Heat=0) is
+  **intentional design**. Players must use Moves or earn Heat via successful
+  actions to unlock Press.
+- **Formation Interception**: If a player is left without a 1v1 marker due to
+  erratic movement logic, the nearest logical opponent is "snapped" into their
+  zone to force a duel.
+
+---
+
+_End of Source of Truth_

@@ -2,74 +2,146 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>beachballers</title>
+    <title>Beachballers</title>
+    <meta name="description" content="Turn-based duel-based roguelike beach soccer. Prototype V1.0." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/src/index.css" />
   </head>
   <body>
     <div id="app">
-      <div id="scoreboard">
-        <div class="timer">00:00</div>
-        <div class="score-container">
-          <span class="score-player">0</span> - <span class="score-ai">0</span>
+      <!-- Background Layer -->
+      <div id="game-bg"></div>
+
+      <!-- Top Bar: Clock and Scores -->
+      <header id="topbar">
+        <div class="score-block">
+          <span class="team-name">Human</span>
+          <span id="score-human" class="score-num">0</span>
         </div>
-        <div class="half">1st Half</div>
+        <div id="match-meta">
+          <div id="clock">00:00</div>
+          <div id="tu-display">TU: <span id="tu-num">0</span></div>
+        </div>
+        <div class="score-block">
+          <span id="score-ai" class="score-num">0</span>
+          <span class="team-name">AI</span>
+        </div>
+      </header>
+
+      <!-- Main Game Area: The Duel Centerpiece -->
+      <main id="arena">
+        <div id="duel-scene">
+          <!-- Human Side -->
+          <div id="actor-human" class="duel-actor">
+            <div class="portrait-wrap">
+              <img id="img-portrait-human" src="/human_player_portrait.png" alt="Human" />
+              <div class="heat-glow"></div>
+              <div class="heat-bar-container">
+                <div class="heat-bar-fill" id="heat-fill-human"></div>
+                <span class="heat-value" id="heat-val-human">0</span>
+              </div>
+            </div>
+            <div class="actor-info">
+              <h2 class="p-name">Marco</h2>
+              <div class="actor-stats stat-grid">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Central Dilemma Display -->
+          <div id="dilemma-container">
+            <div id="dilemma-human" class="dilemma-side">
+              <span id="dilemma-val-human" class="d-val">--</span>
+              <span id="dilemma-label-human" class="d-label">Action</span>
+            </div>
+            <div id="vs-divider">VS</div>
+            <div id="dilemma-ai" class="dilemma-side">
+              <span id="dilemma-val-ai" class="d-val">--</span>
+              <span id="dilemma-label-ai" class="d-label">Intent</span>
+            </div>
+          </div>
+
+          <!-- AI Side -->
+          <div id="actor-ai" class="duel-actor">
+            <div class="portrait-wrap">
+              <img id="img-portrait-ai" src="/ai_player_portrait.png" alt="AI" />
+              <div class="heat-glow"></div>
+              <div class="heat-bar-container">
+                <div class="heat-bar-fill" id="heat-fill-ai"></div>
+                <span class="heat-value" id="heat-val-ai">0</span>
+              </div>
+            </div>
+            <div class="actor-info">
+              <h2 class="p-name">Reyes</h2>
+              <div class="actor-stats stat-grid">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Intent Overlay (Floating) -->
+        <div id="ai-intent-float">
+          <span id="ai-intent-label">Telegraphing...</span>
+        </div>
+      </main>
+
+      <!-- Immersive Bottom Bar -->
+      <footer id="immersive-footer">
+        <div id="footer-left">
+          <!-- Minimap now an absolute child of #app for better anchoring -->
+        </div>
+
+        <!-- 2. Move Carousel (Center) -->
+        <div id="footer-center">
+          <div id="move-carousel"></div>
+        </div>
+
+        <!-- 3. Action Wheel (Bottom Right) -->
+        <div id="footer-right">
+          <div id="action-wheel">
+            <div id="btn-group-attack" class="wheel-group">
+              <button id="btn-dribble" class="wheel-btn" data-label="Dribble">
+                <span class="icon">🏃</span>
+              </button>
+              <button id="btn-pass" class="wheel-btn" data-label="Pass">
+                <span class="icon">🎯</span>
+              </button>
+              <button id="btn-shoot" class="wheel-btn" data-label="Shoot">
+                <span class="icon">⚽</span>
+              </button>
+            </div>
+            <div id="btn-group-defend" class="wheel-group hidden">
+              <button id="btn-press" class="wheel-btn" data-label="Press">
+                <span class="icon">💥</span>
+              </button>
+              <button id="btn-block" class="wheel-btn" data-label="Block">
+                <span class="icon">🛡️</span>
+              </button>
+            </div>
+            <!-- Dynamic Label Display -->
+            <div id="wheel-hover-label">Action</div>
+          </div>
+        </div>
+      </footer>
+
+      <div id="field-minimap-v2"></div>
+
+      <!-- Overlays -->
+      <div id="game-over-overlay" class="overlay hidden">
+        <h1>Match Over</h1>
+        <p id="match-result-text"></p>
+        <button id="btn-restart" class="btn-primary">Play Again</button>
       </div>
       
-      <div id="game-view">
-        <div id="minimap" class="glass-panel">
-          <div class="minimap-grid"></div>
-          <div class="minimap-legend">
-            <span class="legend-item"><span class="dot player"></span> Player</span>
-            <span class="legend-item"><span class="dot ai"></span> AI</span>
-          </div>
-        </div>
-        
-        <div id="duel-view">
-          <div id="player-cards">
-            <div id="attacker-card" class="player-card glass-panel">
-              <div class="card-header"><span class="name">Gonzo</span> <span class="heat-text">Heat: 3</span></div>
-              <div class="stat-grid"></div>
-              <div class="heat-bar-small"><div class="heat-fill"></div></div>
-            </div>
-            
-            <div id="defender-card" class="player-card glass-panel">
-              <div class="card-header"><span class="name">Drift</span> <span class="heat-text">Heat: 3</span></div>
-              <div class="stat-grid"></div>
-              <div class="heat-bar-small"><div class="heat-fill"></div></div>
-            </div>
-          </div>
-
-          <div class="pitch-side"></div>
-          <div class="characters">
-            <div id="attacker" class="player-sprite"></div>
-            <div id="defender" class="player-sprite"></div>
-          </div>
-          
-          <div id="ui-overlay">
-            <div id="ai-intent-bubble" class="intent-bubble"></div>
-            <div id="prediction-box" class="glass-panel hidden">
-              <div class="prediction-text">Pass: 80% Success</div>
-              <div class="formula-text">15 PAS - 2 REA = 13</div>
-            </div>
-            <div id="resolution-msg" class="hidden"></div>
-          </div>
-        </div>
-      </div>
-
-      <div id="controls">
-        <div id="heat-section">
-          <div class="heat-bar"><div class="heat-fill" style="width: 30%;"></div></div>
-        </div>
-        <div id="move-carousel">
-          <!-- Cards injected here -->
-        </div>
-        <div id="exit-actions">
-          <button id="btn-hold" class="system-btn">HOLD</button>
-          <button id="btn-dribble" class="exit-btn">DRIBBLE</button>
-          <button id="btn-pass" class="exit-btn">PASS</button>
-          <button id="btn-shoot" class="exit-btn">SHOOT</button>
-        </div>
+      <div id="kickoff-overlay" class="overlay">
+        <h1>Beachballers</h1>
+        <p>Ready for Kickoff?</p>
+        <button id="btn-kickoff" class="btn-primary">Start Match</button>
       </div>
     </div>
     <script type="module" src="/src/main.js"></script>
