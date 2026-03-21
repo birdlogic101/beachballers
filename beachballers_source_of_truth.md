@@ -8,6 +8,14 @@ progression.
 
 ## 1. Project Overview
 
+### Move Card Archetypes (V1.5)
+
+- **Red (Vs Press)**: Momentum and Escape.
+  - *Example*: "Full Send" (+8 DRI, -5 Fitness cost).
+- **Blue (Vs Block)**: Accuracy and Setups.
+  - *Example*: "Lobby Pass" (Sets ball to AIR state).
+- **Gray (Defense)**: Mitigation and Stamina.
+  - *Example*: "Iron Lungs" (Recovers Fitness).
 - **Genre**: Roguelike Soccer.
 - **Theme**: Beach Soccer.
 - **Core Loop**: The game proceeds through a series of 1v1 duels until the end
@@ -135,6 +143,11 @@ The field is a vertical grid divided into 6 rows (1-6) and 3 columns (A-B-C).
 
 Every player has five primary statistics, plus Speed:
 
+#### Player Roles & Archetypes
+- **The Mountain (GK/CB)**: High COM/AGG, 0 DRI/PAS. Immovable object.
+- **The Blur (LW)**: Elite DRI/SPE, extremely low Fitness (Glass Cannon).
+- **The Engine (RB)**: Extreme Fitness, balanced fatigue resistance.
+- **The Specialist (CF)**: Highly dependent on Heat (Scales with momentum).
 - **DRI (Dribbling)**: Used for Dribble exit actions.
 - **PAS (Passing)**: Used for Pass exit actions.
 - **SHO (Shooting)**: Used for Shoot exit actions.
@@ -160,17 +173,30 @@ Human player stats have a volatility range (Default: 0-2).
 
 ### Heat System (Prototype V1.0)
 
-- **Bar Range**: Min -5 (Cold) | Max 10 (On Fire).
+- **Total Range (10 Units)**: Min -3 (Cold) | Max 7 (On Fire).
+- **Visual Representation (Center-Origin)**:
+  - **Heat 0**: The bar is empty.
+  - **Negative (-1 to -3)**: Bar fills from the 0-mark to the LEFT in Blue.
+  - **Positive (+1 to +7)**: Bar fills from the 0-mark to the RIGHT in Yellow/Orange.
 - **Start**: Default 0 at match kickoff. Persistent during match.
 - **Increases**: Successful actions (+1) and certain moves.
 - **Decreases**: Failed actions (-1) and certain moves.
-- **Requirement**: Heat acts as a threshold for many actions (e.g., Shooting
-  access).
+- **Requirement**: Heat acts as a threshold for many actions (e.g., Shooting access).
 - **GK Heat**: The human GK accumulates Heat exclusively through **saves** (+1
   per save). The GK also participates in field duels and therefore can gain/lose
   Heat through normal field actions.
 - **UI Representation**: Displayed as large, prominent bars with a **numeric
   value overlay** (e.g., "HEAT: +2").
+### Fitness System (Prototype V1.0)
+
+- **Bar Range**: 0 (Injured) to Max (Unique per player, e.g., 15-30).
+- **Match Start**: All players start at their unique Max Fitness level.
+- **Press Damage (Attrition)**: If a team in possession fails a duel against a
+  **Press** defense, the attacker takes direct Fitness damage.
+  - **Calculation**: `Fitness Loss = Press_Value - Attacker_Value`.
+- **High Stakes**: If any player's Fitness reaches 0, they are considered
+  **Injured**. For Prototype V1.0, an injury results in **Competition Over**.
+- **UI Representation**: Displayed as a secondary bar on HUD player cards.
 
 ### Experience (XP) & Leveling
 

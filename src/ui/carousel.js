@@ -28,9 +28,11 @@ export function renderCarousel(state) {
   // Filter moves by AI intent color (if any)
   const intent = state.activeDuel?.aiIntent;
   const intentColor = intent ? INTENT_TO_MOVE_COLOR[intent.action] : null;
+  const hand = state.activeDuel?.moveHand ?? [];
+  
   const available = intentColor 
-    ? MOVES.filter(m => m.color === intentColor)
-    : MOVES;
+    ? hand.filter(m => m.color === intentColor)
+    : hand;
 
   const currentTU = state.activeDuel?.touchUnits ?? 0;
   
@@ -72,7 +74,14 @@ export function renderCarousel(state) {
 }
 
 function _moveDesc(move) {
-  if (move.effect.stat) return `+${move.effect.bonus} ${move.effect.stat}`;
-  if (move.effect.heatBonus) return `+${move.effect.heatBonus} Heat`;
-  return '';
+  const parts = [];
+  const ef = move.effect;
+  if (ef.stat) parts.push(`+${ef.bonus} ${ef.stat}`);
+  if (ef.heatDelta) parts.push(`${ef.heatDelta > 0 ? '+' : ''}${ef.heatDelta} Heat`);
+  if (ef.fitnessDelta) parts.push(`${ef.fitnessDelta > 0 ? '+' : ''}${ef.fitnessDelta} Fit`);
+  if (ef.aiValueDelta) parts.push(`${ef.aiValueDelta} AI`);
+  if (ef.ballState === 'AIR') parts.push('↑ AIR');
+  if (ef.convertTo) parts.push(`➔ ${ef.convertTo}`);
+  
+  return parts.length > 0 ? parts.join(', ') : (move.description || '');
 }

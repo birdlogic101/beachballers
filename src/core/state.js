@@ -34,9 +34,10 @@ export function createInitialState(humanSquad, aiSquad) {
     phase:        PHASE.KICKOFF,
     clock:        0,           // virtual minutes elapsed (0–24)
     half:         1,           // 1 or 2
+    ballZone:     '3B',        // e.g. '3C', '5B'
+    ballState:    'GROUND',    // 'GROUND' or 'AIR'
     score:        { human: 0, ai: 0 },
     possession:   null,        // 'human' | 'ai'  — set after coin toss
-    ballZone:     null,        // e.g. '3C', '5B'
     humans,                    // array of player objects
     ais,                       // array of player objects
     selectedHumanId: null,      // for tactical hud inspection

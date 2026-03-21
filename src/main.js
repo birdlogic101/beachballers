@@ -167,6 +167,7 @@ function _setupNextDuel(s) {
       defender: null,
       touchUnits: Math.max(3, attacker.stats.SPE),
       movesPlayed: [],
+      moveHand: [...MOVES],
       // For Human: show 'Block' to filter moves to Blue. For AI: set real intent to Pass.
       aiIntent: isHumanPoss ? { action: 'Block', value: 0 } : { action: 'pass', value: attacker.stats.PAS.base },
       buffs: {}
@@ -203,21 +204,46 @@ function _handlePlayMove(s, moveId) {
   const move = MOVES.find(m => m.id === moveId);
   if (!move || ns.activeDuel.touchUnits < move.tuCost) return ns;
 
+  // 0. Consume combo bonus if any
+  const comboBonus = ns.activeDuel.buffs.nextMoveBonus || 0;
+  if (comboBonus) {
+    console.log('APPLYING COMBO BONUS:', comboBonus);
+    ns.activeDuel.buffs.nextMoveBonus = 0; // Consume
+  }
+
   // Deduct TU
   ns.activeDuel.touchUnits -= move.tuCost;
   ns.activeDuel.movesPlayed.push(moveId);
 
-  // Apply effect
-  const { buffs, heatDelta } = applyMoveEffect(ns, move);
-  ns.activeDuel.buffs = buffs;
-
-  // Apply heat delta immediately to the attacker
+  // Apply effects immediately to the attacker
   const attacker = ns.possession === 'human' 
     ? ns.humans.find(p => p.id === ns.activeDuel.attacker)
     : ns.ais.find(p => p.id === ns.activeDuel.attacker);
 
   if (attacker) {
-    attacker.heat = updateHeat(attacker.heat, 'bonus', heatDelta);
+    const { buffs, heatDelta, fitnessDelta } = applyMoveEffect(ns, move);
+    ns.activeDuel.buffs = buffs;
+    
+    // Apply combo bonus to the CURRENT move's primary stat if applicable
+    if (comboBonus && move.effect.stat) {
+      ns.activeDuel.buffs[move.effect.stat] = (ns.activeDuel.buffs[move.effect.stat] || 0) + comboBonus;
+    }
+    
+    if (heatDelta) attacker.heat = updateHeat(attacker.heat, 'bonus', heatDelta);
+    if (fitnessDelta) {
+      attacker.fitness = Math.max(0, (attacker.fitness || 20) + fitnessDelta);
+      // Check for injury
+      if (attacker.fitness <= 0) {
+        ns.phase = PHASE.MATCH_OVER;
+        ns.gameOver = true;
+        ns.winner = ns.possession === 'human' ? 'ai' : 'human';
+        ns.gameOverReason = `${attacker.name} collapsed from exhaustion!`;
+      }
+    }
+
+    if (buffs.ballState) {
+      ns.ballState = buffs.ballState;
+    }
     
     // Perma-buff for 'match' duration moves
     if (move.effect.duration === 'match' && move.effect.stat) {
@@ -249,6 +275,8 @@ function _handleExitAction(s, type) {
     ? ns.ais.find(p => p.id === duel.defender)
     : ns.ais.find(p => p.id === duel.attacker);
 
+  ns.ballState = 'GROUND'; // Reset air state on every touch resolution
+
   const isOneVZero = (ns.phase === PHASE.ONE_V_ZERO);
 
   if (isOneVZero) {
@@ -274,7 +302,12 @@ function _handleExitAction(s, type) {
   const defender = isHumanAttacker ? ai : human;
 
   // 2. Human rolls based on chosen action; AI uses fixed intent value
-  const statKey = _getStatKey(type); 
+  let statKey = _getStatKey(type); 
+  if (isHumanAttacker && duel.buffs.convertTo) {
+    console.log('CONVERTING Action Stat to:', duel.buffs.convertTo);
+    statKey = duel.buffs.convertTo;
+  }
+  
   let humanVal = getEffectiveAttackValue(human, statKey, duel.buffs, human.volatility);
   humanVal = applySignatureSkill(human, type, humanVal);
 
@@ -518,16 +551,43 @@ function _handleSuccess(s, type) {
 
 function _handleFailure(s, type) {
   let ns = { ...s };
-  const attacker = ns.possession === 'human' 
+  const res = s.resolution; // Use previous resolution for damage calc
+  const attackerId = s.activeDuel.attacker;
+
+  // 1. Flip Possession
+  ns.possession = s.possession === 'human' ? 'ai' : 'human';
+
+  // 2. Physical Attrition: Damage from 'Press' (§Fitness System)
+  const isPress = s.possession === 'human' 
+    ? (res?.aiAction === 'press') 
+    : (res?.humanAction === 'press');
+
+  if (isPress && res) {
+    const damage = Math.max(0, res.defendValue - res.rolledValue);
+    if (damage > 0) {
+      const attacker = s.possession === 'human' 
+        ? ns.humans.find(p => p.id === attackerId)
+        : ns.ais.find(p => p.id === attackerId);
+      
+      if (attacker) {
+        attacker.fitness = Math.max(0, (attacker.fitness || 20) - damage);
+        console.log(`PLAYER HIT! ${attacker.name} lost ${damage} Fitness. Current: ${attacker.fitness}`);
+        
+        if (attacker.fitness <= 0) {
+           ns.gameOver = true;
+           ns.winner = s.possession === 'human' ? 'ai' : 'human';
+           ns.gameOverReason = `${attacker.name} is injured! Competition over.`;
+        }
+      }
+    }
+  }
+  const attacker = s.possession === 'human' 
     ? ns.humans.find(p => p.id === ns.activeDuel.attacker)
     : ns.ais.find(p => p.id === ns.activeDuel.attacker);
   
   // Heat down
   attacker.heat = updateHeat(attacker.heat, 'failure');
   
-  // Turnover!
-  ns.possession = ns.possession === 'human' ? 'ai' : 'human';
-
   if (type === 'shoot') {
     // 1. Shooter drops back to Row 5/2 (§10.2)
     const shooterId = s.activeDuel.attacker;
@@ -579,6 +639,12 @@ function _showGameOver(s) {
   _showOverlay('game-over-overlay');
   const text = document.getElementById('match-result-text');
   if (!text) return;
+
+  if (s.gameOverReason) {
+    text.textContent = s.gameOverReason;
+    return;
+  }
+
   const h = s.score.human;
   const a = s.score.ai;
   if (h > a) text.textContent = `You Won! ${h} - ${a}`;

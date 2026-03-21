@@ -1,3 +1,5 @@
+import { MOVES } from '../data/moves.js';
+
 /**
  * duel.js — Duel setup, resolution, and volatility rolling.
  *
@@ -49,6 +51,7 @@ export function setupDuel(attacker, defender, aiIntent) {
     lane,
     touchUnits,
     movesPlayed: [],
+    moveHand:    [...MOVES], 
     aiIntent,
     buffs:       {},
   };
@@ -71,22 +74,30 @@ export function getEffectiveAttackValue(player, stat, buffs = {}, volatilityRang
 export function applyMoveEffect(state, move) {
   const buffs = { ...state.activeDuel.buffs };
   let heatDelta = 0;
+  let fitnessDelta = 0;
 
+  // 1. Basic Stat Buffs
   if (move.effect.stat && (!move.effect.duration || move.effect.duration === 'duel')) {
     const current = buffs[move.effect.stat] || 0;
     buffs[move.effect.stat] = current + move.effect.bonus;
   }
 
+  // 2. Resource Deltas
+  if (move.effect.heatDelta)    heatDelta = move.effect.heatDelta;
+  if (move.effect.fitnessDelta) fitnessDelta = move.effect.fitnessDelta;
+
+  // 3. Info Manipulation
   if (move.effect.aiValueDelta) {
     const current = buffs.aiValueDelta || 0;
     buffs.aiValueDelta = current + move.effect.aiValueDelta;
   }
 
-  if (move.effect.heatDelta) {
-    heatDelta = move.effect.heatDelta;
-  }
+  // 4. Tactical Flags (Stored in buffs to persist through the duel)
+  if (move.effect.convertTo)      buffs.convertTo = move.effect.convertTo;
+  if (move.effect.ballState)      buffs.ballState = move.effect.ballState;
+  if (move.effect.nextMoveBonus)  buffs.nextMoveBonus = move.effect.nextMoveBonus;
 
-  return { buffs, heatDelta };
+  return { buffs, heatDelta, fitnessDelta };
 }
 
 /**

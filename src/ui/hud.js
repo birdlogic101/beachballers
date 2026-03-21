@@ -33,6 +33,21 @@ export function renderHUD(state) {
   const scoreAI = document.getElementById('score-ai');
   if (scoreAI) scoreAI.textContent = state.score.ai;
 
+  // Ball State Indicator
+  const clockWrap = document.getElementById('match-meta');
+  if (clockWrap) {
+    let stateInd = clockWrap.querySelector('.ball-state-ind');
+    if (!stateInd) {
+      stateInd = document.createElement('div');
+      stateInd.className = 'ball-state-ind';
+      clockWrap.appendChild(stateInd);
+    }
+    stateInd.textContent = state.ballState === 'AIR' ? '⚽ AIR' : '';
+    stateInd.style.color = 'var(--accent)';
+    stateInd.style.fontSize = '12px';
+    stateInd.style.fontWeight = '900';
+  }
+
   // Tactical Cards
   _renderTopCards(state);
 
@@ -159,10 +174,16 @@ function _renderTopCards(state) {
 }
 
 function _fillMiniCard(el, player, team) {
-  const isAI = team === 'ai';
-  const stats = team === 'human' ? ['DRI','PAS','SHO'] : ['AGG','COM'];
+  const stats = ['DRI','PAS','SHO','AGG','COM'];
   el.className = `top-player-info ${team}`;
-  
+
+  const heatMin = -3;
+  const heatMax = 7;
+  const heatRange = 10;
+  // Percentage = ((Heat - Min) / Range) * 100
+  const normalizedHeat = Math.min(Math.max(player.heat, heatMin), heatMax);
+  const heatPct = ((normalizedHeat - heatMin) / heatRange) * 100;
+
   el.innerHTML = `
     <img src="/${team}_player_portrait.png" class="mini-portrait" alt="${player.name}">
     <div class="mini-main">
@@ -172,9 +193,20 @@ function _fillMiniCard(el, player, team) {
       </div>
       <div class="mini-stats">
         ${stats.map(s => `
-          <span class="mini-stat-item">${s}<span class="mini-stat-val">${player.stats[s].base}</span></span>
+          <div class="mini-stat-item">${s}<div class="mini-stat-val">${player.stats[s].base}</div></div>
         `).join('')}
-        <span class="mini-stat-item">HEAT<span class="mini-stat-val">${player.heat > 0 ? '+' : ''}${player.heat}</span></span>
+      </div>
+      <div class="sig-row">
+        <span class="sig-tag">${player.sig ? `✨ ${player.sig.name}` : ''}</span>
+      </div>
+      <div class="heat-container">
+        <div class="heat-fill-neg" style="width: ${player.heat < 0 ? (Math.abs(player.heat) / 10) * 100 : 0}%"></div>
+        <div class="heat-fill-pos" style="width: ${player.heat > 0 ? (player.heat / 10) * 100 : 0}%"></div>
+        <span class="heat-label">HEAT ${player.heat > 0 ? '+' : ''}${player.heat}</span>
+      </div>
+      <div class="fitness-container">
+        <div class="fitness-fill ${player.fitness <= 5 ? 'low' : ''}" style="width: ${(player.fitness / (player.maxFitness || 20)) * 100}%"></div>
+        <span class="fitness-label">FITNESS ${player.fitness}/${player.maxFitness}</span>
       </div>
     </div>
   `;

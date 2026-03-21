@@ -4,8 +4,8 @@
  * Supports Ball marker and multi-entity offsets per zone.
  */
 
-const SVG_W  = 180;
-const SVG_H  = 360;
+const SVG_W  = 200;
+const SVG_H  = 264;
 const PAD    = 10;
 const CELL_W = (SVG_W - PAD*2) / 3;
 const CELL_H = (SVG_H - PAD*2) / 6;
