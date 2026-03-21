@@ -32,30 +32,62 @@ function oppositeLaneZone(zone) {
 
 /**
  * Returns the target zone for a pass action.
- *
- * @param {number} heat         - current heat of the passer
- * @param {string} fromZone     - zone the passer is currently in
- * @returns {string}            - target zone
+ * The ball seeks the closest teammate to the target row.
  */
-export function getPassTarget(heat, fromZone) {
-  // GK exception: always passes to 2B
-  if (fromZone === '1B') return '2B';
+export function getPassTarget(state, fromZone) {
+  const isHuman = (state.possession === 'human');
+  const teammates = isHuman ? state.humans : state.ais;
+  const passer = teammates.find(p => p.zone === fromZone);
+  
+  if (!passer) return fromZone;
 
+  // GK exception: always passes to next row
+  if (fromZone === '1B') {
+     const t2B = teammates.find(p => p.zone === '2B');
+     if (t2B) return '2B';
+  }
+  if (fromZone === '6B') {
+     const t5B = teammates.find(p => p.zone === '5B');
+     if (t5B) return '5B';
+  }
+
+  const heat = passer.heat || 0;
   const row = rowOf(fromZone);
+  let targetRow;
 
   if (heat === 0) {
-    return oppositeLaneZone(fromZone);
+    // Lane Switch or Small movement
+    targetRow = row;
+  } else if (isHuman) {
+    targetRow = Math.min(5, Math.max(2, row + heat));
+  } else {
+    targetRow = Math.min(5, Math.max(2, row - heat));
   }
 
-  if (heat > 0) {
-    // Forward pass: X rows ahead where X = heat value, capped at row 5
-    const targetRow = Math.min(5, row + heat);
-    return `${targetRow}B`;
+  // Find teammate closest to targetRow (but not the passer)
+  const choices = teammates.filter(p => p.id !== passer.id);
+  if (choices.length === 0) return fromZone;
+
+  // Sort by row distance to targetRow
+  choices.sort((a, b) => {
+    const distA = Math.abs(rowOf(a.zone) - targetRow);
+    const distB = Math.abs(rowOf(b.zone) - targetRow);
+    if (distA !== distB) return distA - distB;
+    // Tie-break: prefer forward direction
+    const bwdA = isHuman ? (rowOf(a.zone) < row) : (rowOf(a.zone) > row);
+    const bwdB = isHuman ? (rowOf(b.zone) < row) : (rowOf(b.zone) > row);
+    if (bwdA !== bwdB) return bwdA ? 1 : -1;
+    return 0;
+  });
+
+  const bestZone = choices[0].zone;
+  
+  // FINAL SAFETY (§6.2 Fix): If logic results in same zone, force a different teammate
+  if (bestZone === fromZone) {
+     return choices[1] ? choices[1].zone : fromZone;
   }
 
-  // heat < 0: backward pass: X rows back where X = |heat|, capped at row 2
-  const targetRow = Math.max(2, row + heat); // heat is negative so this subtracts
-  return `${targetRow}B`;
+  return bestZone;
 }
 
 /**

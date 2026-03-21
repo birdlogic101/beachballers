@@ -18,9 +18,9 @@ export function renderCarousel(state) {
 
   // 1v0 state or no duel — hide carousel
   const phase = state.phase;
-  if (phase === 'ONE_V_ZERO' || phase === 'KICKOFF' || phase === 'MATCH_OVER') {
-
+  if (phase === 'KICKOFF' || phase === 'MATCH_OVER') {
     wrap.classList.add('hidden');
+    document.getElementById('tu-banner')?.classList.add('hidden');
     return;
   }
   wrap.classList.remove('hidden');
@@ -38,6 +38,13 @@ export function renderCarousel(state) {
   const human = state.humans.find(p => p.id === state.activeDuel?.attacker || p.id === state.activeDuel?.defender);
   const currentHeat = human ? human.heat : 0;
 
+  const tuBanner = document.getElementById('tu-banner');
+  const tuVal = document.getElementById('tu-active-val');
+  if (tuBanner && tuVal) {
+    tuBanner.classList.remove('hidden');
+    tuVal.textContent = state.activeDuel?.touchUnits ?? 0;
+  }
+
   wrap.innerHTML = '';
   available.forEach(move => {
     const card = document.createElement('article');
@@ -49,15 +56,16 @@ export function renderCarousel(state) {
     card.innerHTML = `
       <div class="m-color-tag" style="background: var(--color-${move.color})"></div>
       <div class="m-name">${move.name}</div>
-      <div class="m-cost">TU: ${move.tuCost}</div>
-      <div class="m-req">Heat: ${move.heatReq || 0}</div>
       <div class="m-desc">${_moveDesc(move)}</div>
+      <div class="m-cost-footer">
+        <span class="m-tu-cost">${move.tuCost} TU</span>
+        ${move.heatReq ? `<span class="m-heat-req">+${move.heatReq} H</span>` : ''}
+      </div>
     `;
 
     if (isAffordable) {
       card.onclick = () => _dispatch({ type: 'PLAY_MOVE', moveId: move.id });
     }
-
     
     wrap.appendChild(card);
   });

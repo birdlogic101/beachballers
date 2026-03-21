@@ -36,7 +36,7 @@ export function getRole(zone) {
 // ─── Kickoff positions (§3) ──────────────────────────────────────────────────
 
 export const KICKOFF_HUMAN = { GK: '1B', CB: '2B', RB: '3C', LW: '4A', CF: '5B' };
-export const KICKOFF_AI    = { GK: '6B', CB: '5B', RB: '4A', LW: '3C', CF: '2B' };
+export const KICKOFF_AI    = { GK: '6B', CB: '5B', RB: '3C', LW: '4A', CF: '2B' };
 
 // ─── Dribble target column rules (§7 Core Principles) ────────────────────────
 
@@ -81,20 +81,28 @@ export function cascade(state, dribblerZone) {
   const ais    = state.ais.map(p =>   ({ ...p }));
 
   _applyRotation(humans, dribblerZone, false);
-  _redistributeAI(humans, ais, '1B', '6B');
+  
+  // Goal Duel (§7.4): No ripple if dribbling from row 5
+  if (parseInt(dribblerZone[0]) === 5) return { humans, ais };
+
+  // High-fidelity AI marker tracking (§7)
+  const row = parseInt(dribblerZone[0]);
+  _redistributeAIIdentity(humans, ais, row, false);
 
   return { humans, ais };
 }
 
-/**
- * Mirror cascade for AI dribble success (§7 Mirror Rule).
- */
 export function mirrorCascade(state, dribblerZone) {
   const humans = state.humans.map(p => ({ ...p }));
   const ais    = state.ais.map(p =>   ({ ...p }));
 
   _applyRotation(ais, dribblerZone, true);
-  _redistributeAI(ais, humans, '6B', '1B');
+  
+  // Goal Duel (§7.4): No ripple if AI dribbling into row 1
+  if (parseInt(dribblerZone[0]) === 2) return { humans, ais };
+
+  const row = parseInt(dribblerZone[0]);
+  _redistributeAIIdentity(ais, humans, row, true);
 
   return { humans, ais };
 }
@@ -185,20 +193,62 @@ function _safeDropZone(oldLow) {
 // ─── AI redistribution ────────────────────────────────────────────────────────
 
 /**
- * After a team cascade, the cover team re-distributes to sit in the same
- * zones as the moved team's field players (1v1 preserved).
+ * Identity-based redistribution (§7 Ripple Effects).
+ * Maps specific AI players to human field players based on the dribble row.
  */
-function _redistributeAI(movedTeam, coverTeam, movedGKZone, coverGKZone) {
-  const movedField = movedTeam
-    .filter(p => p.zone !== movedGKZone)
-    .sort((a, b) => _rowOf(a.zone) - _rowOf(b.zone));
+function _redistributeAIIdentity(movedTeam, coverTeam, dribbleRow, isMirror) {
+  const gkZone = isMirror ? '6B' : '1B';
+  const cvGK   = isMirror ? '1B' : '6B';
 
-  const coverField = coverTeam
-    .filter(p => p.zone !== coverGKZone)
-    .sort((a, b) => _rowOf(a.zone) - _rowOf(b.zone));
+  const mField = movedTeam.filter(p => p.zone !== gkZone);
+  const cField = coverTeam.filter(p => p.zone !== cvGK);
+  if (mField.length < 4 || cField.length < 4) return;
 
-  movedField.forEach((mover, i) => {
-    if (coverField[i]) coverField[i].zone = mover.zone;
+  // Identity Map: we need a stable way to find RB, LW, CB, CF
+  const getP = (team, role) => team.find(p => p.id.toLowerCase().includes(role.toLowerCase()));
+  
+  // Define markers based on scenarios (§7)
+  let markerMap = {}; // { humanRole -> aiRole }
+  
+  // Scenario Row logic: 
+  // Human R2/R4 dribbles -> Full Cascade.
+  // Human R3 dribble -> Mid Cascade.
+  // (Mirror matches appropriately)
+  const isFull = (isMirror ? (dribbleRow === 5 || dribbleRow === 3) : (dribbleRow === 2 || dribbleRow === 4));
+  const isMid  = (isMirror ? (dribbleRow === 4) : (dribbleRow === 3));
+
+  if (isFull) {
+    // Full Cascade (§7.1 / §7.3)
+    // Results: huRB↔aiCF, huCB↔aiRB, huLW↔aiCB, huCF↔aiLW (normalized roles)
+    markerMap = { RB: 'CF', CB: 'RB', LW: 'CB', CF: 'LW' };
+  } else if (isMid) {
+    // Mid Cascade (§7.2)
+    // Results: huRB↔aiCB, huLW↔aiCF, huCB↔aiRB, huCF↔aiLW
+    markerMap = { RB: 'CB', LW: 'CF', CB: 'RB', CF: 'LW' };
+    // Goal Duel (§7.4) or static state: Keep row-based 1v1
+    // Filter out goal zones so field markers stay in row 2/5
+    const goalRow = isMirror ? 1 : 6;
+    mField.sort((a,b) => _rowOf(a.zone) - _rowOf(b.zone));
+    cField.sort((a,b) => _rowOf(a.zone) - _rowOf(b.zone));
+    mField.forEach((m, i) => { 
+      if (cField[i]) {
+        // Markers stay in the field (rows 2-5). They don't enter the GK net/zone 6.
+        if (_rowOf(m.zone) !== goalRow) {
+          cField[i].zone = m.zone;
+        }
+      }
+    });
+    return;
+  }
+
+  // Apply the map
+  const roles = ['RB', 'CB', 'LW', 'CF'];
+  roles.forEach(role => {
+    // mField always follows the roles of 'movedTeam' (could be Human or AI)
+    // We want to map the MOVE-TEAM's role to the COVER-TEAM's role.
+    const mover = getP(mField, role);
+    const marker = getP(cField, markerMap[role]);
+    if (mover && marker) marker.zone = mover.zone;
   });
 }
 

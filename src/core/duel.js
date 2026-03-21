@@ -68,19 +68,18 @@ export function getEffectiveAttackValue(player, stat, buffs = {}, volatilityRang
   return rollVolatility(base, volatilityRange);
 }
 
-/**
- * Applies a move's effect to the state.
- * @param {Object} state - the current GameState
- * @param {Object} move  - the move object from data/moves.js
- * @returns {Object} { buffs, heatDelta }
- */
 export function applyMoveEffect(state, move) {
   const buffs = { ...state.activeDuel.buffs };
   let heatDelta = 0;
 
-  if (move.effect.stat) {
+  if (move.effect.stat && (!move.effect.duration || move.effect.duration === 'duel')) {
     const current = buffs[move.effect.stat] || 0;
     buffs[move.effect.stat] = current + move.effect.bonus;
+  }
+
+  if (move.effect.aiValueDelta) {
+    const current = buffs.aiValueDelta || 0;
+    buffs.aiValueDelta = current + move.effect.aiValueDelta;
   }
 
   if (move.effect.heatDelta) {

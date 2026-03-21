@@ -17,23 +17,30 @@
 
       <!-- Top Bar: Clock and Scores -->
       <header id="topbar">
-        <div class="score-block">
-          <span class="team-name">Human</span>
-          <span id="score-human" class="score-num">0</span>
+        <div id="player-info-left" class="top-player-info"></div>
+        
+        <div class="score-center-wrap">
+          <div class="score-block">
+            <span class="team-name">Human</span>
+            <span id="score-human" class="score-num">0</span>
+          </div>
+          <div id="match-meta">
+            <div id="clock">00:00</div>
+            <div id="tu-display">TU: <span id="tu-num">0</span></div>
+          </div>
+          <div class="score-block">
+            <span id="score-ai" class="score-num">0</span>
+            <span class="team-name">AI</span>
+          </div>
         </div>
-        <div id="match-meta">
-          <div id="clock">00:00</div>
-          <div id="tu-display">TU: <span id="tu-num">0</span></div>
-        </div>
-        <div class="score-block">
-          <span id="score-ai" class="score-num">0</span>
-          <span class="team-name">AI</span>
-        </div>
+
+        <div id="player-info-right" class="top-player-info"></div>
       </header>
 
       <!-- Main Game Area: The Duel Centerpiece -->
       <main id="arena">
         <div id="duel-scene">
+          <div id="possession-ball" class="hidden">⚽</div>
           <!-- Human Side -->
           <div id="actor-human" class="duel-actor">
             <div class="portrait-wrap">
@@ -98,6 +105,10 @@
 
         <!-- 2. Move Carousel (Center) -->
         <div id="footer-center">
+          <div id="tu-banner" class="hidden">
+            <span class="tu-label">TOUCH UNITS</span>
+            <span id="tu-active-val">0</span>
+          </div>
           <div id="move-carousel"></div>
         </div>
 
@@ -132,6 +143,11 @@
       <div id="field-minimap-v2"></div>
 
       <!-- Overlays -->
+      <div id="goal-notification" class="hidden">
+        <div class="goal-stripe"></div>
+        <h1 class="goal-text">GOAL!</h1>
+      </div>
+
       <div id="game-over-overlay" class="overlay hidden">
         <h1>Match Over</h1>
         <p id="match-result-text"></p>

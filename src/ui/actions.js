@@ -1,4 +1,6 @@
 import { setHoveredAction } from './hud.js';
+import { PHASE } from '../core/state.js';
+import { canShoot, canPress, isDribbleLocked, isPassLocked } from '../core/heat.js';
 
 let _dispatch = null;
 
@@ -39,38 +41,38 @@ export function renderActions(state) {
   if (attackGroup) attackGroup.classList.toggle('hidden', !isHumanAttacking);
   if (defendGroup) defendGroup.classList.toggle('hidden', isHumanAttacking);
 
-  // Dribble Lock (§7.4 row 5 vacant rule / GK zone 6B)
+  const attacker = isHumanAttacking 
+    ? state.humans.find(p => p.id === state.activeDuel?.attacker)
+    : state.ais.find(p => p.id === state.activeDuel?.attacker);
+
+  const defender = isHumanAttacking
+    ? state.ais.find(p => p.id === state.activeDuel?.defender)
+    : state.humans.find(p => p.id === state.activeDuel?.defender);
+
+  const isActionable = (phase === PHASE.PLAYER_ACTION || phase === PHASE.ONE_V_ZERO);
+
+  // Attack Buttons
   const btnDribble = document.getElementById('btn-dribble');
   if (btnDribble) {
-    const row = state.ballZone ? parseInt(state.ballZone[0]) : 0;
-    btnDribble.disabled = (row === 6); // Cannot dribble out of game?
+    btnDribble.disabled = !isActionable || isDribbleLocked(state.ballZone);
   }
-
-  // Pass Lock
   const btnPass = document.getElementById('btn-pass');
   if (btnPass) {
-    btnPass.disabled = (state.ballZone === '6B'); // Hard lock for GK exit
+    btnPass.disabled = !isActionable || isPassLocked(state.ballZone);
   }
-
-  // Shoot Lock (Zone thresholds §8)
   const btnShoot = document.getElementById('btn-shoot');
   if (btnShoot) {
-    const row = state.ballZone ? parseInt(state.ballZone[0]) : 0;
-    // For V1.0, row 2 and 3 can shoot
-    btnShoot.disabled = (row > 3 || row < 2);
+    btnShoot.disabled = !isActionable || !attacker || !canShoot(attacker.heat, state.ballZone);
   }
 
-  // Press/Block (Heat requirement §10)
+  // Defend Buttons
   const btnPress = document.getElementById('btn-press');
   if (btnPress) {
-    const defender = state.humans.find(p => p.zone === state.ballZone);
-    btnPress.disabled = !defender || defender.heat < 1;
+    const humanDef = state.humans.find(p => p.id === state.activeDuel?.defender);
+    btnPress.disabled = !isActionable || !humanDef || !canPress(humanDef.heat);
   }
-
-  // Global Lock: Only allow actions in Exit/Player phase
-  const isActionable = (phase === PHASE.PLAYER_ACTION || phase === PHASE.ONE_V_ZERO);
-  const allBtns = document.querySelectorAll('.wheel-btn');
-  allBtns.forEach(b => {
-    if (!isActionable) b.disabled = true;
-  });
+  const btnBlock = document.getElementById('btn-block');
+  if (btnBlock) {
+    btnBlock.disabled = !isActionable; // Block is always allowed if actionable
+  }
 }

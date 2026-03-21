@@ -13,6 +13,7 @@ export const PHASE = {
   RESOLUTION:    'RESOLUTION',
   ROTATION:      'ROTATION',
   ONE_V_ZERO:    'ONE_V_ZERO',   // GK ball possession — no defender
+  GOAL_ANIMATION: 'GOAL_ANIMATION',
   MATCH_OVER:    'MATCH_OVER',
 };
 
@@ -38,6 +39,8 @@ export function createInitialState(humanSquad, aiSquad) {
     ballZone:     null,        // e.g. '3C', '5B'
     humans,                    // array of player objects
     ais,                       // array of player objects
+    selectedHumanId: null,      // for tactical hud inspection
+    selectedAIId:    null,      // for tactical hud inspection
     activeDuel: {
       attacker:   null,        // player id
       defender:   null,        // player id (ai player)

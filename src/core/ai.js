@@ -27,34 +27,44 @@ export const INTENT_TO_MOVE_COLOR = {
 
 /**
  * Generates the AI's intent for the current duel.
- * In V1.0, intent probabilities are simple weighted rolls based on zone.
- * Modelled as STS-style: the AI "telegraphs" a fixed action.
  *
- * @param {Object} aiPlayer  - AI player object with stats
- * @param {string} zone      - AI player's current zone
+ * @param {Object}  aiPlayer    - AI player object
+ * @param {string}  zone        - AI player's current zone
+ * @param {boolean} isDefending - true if AI is defender, false if attacker
  * @returns {{ action: string, value: number }}
  */
-export function generateIntent(aiPlayer, zone) {
+export function generateIntent(aiPlayer, zone, isDefending) {
   const row = parseInt(zone[0]);
 
-  // Weight table: [Press, Block, Dribble, Pass, Shoot]
-  // AI becomes more aggressive (shoot/press) closer to human goal (rows 2-3)
-  // AI tends to defend (block/pass) farther back (rows 4-5)
-  const weights = _intentWeights(row);
-  const action  = _weightedPick(AI_ACTIONS, weights);
+  // Use context-specific weights
+  const weights = isDefending ? _defendingWeights(row) : _attackingWeights(row);
+  
+  // Filter actions based on context
+  const actions = isDefending 
+    ? { PRESS: AI_ACTIONS.PRESS, BLOCK: AI_ACTIONS.BLOCK }
+    : { DRIBBLE: AI_ACTIONS.DRIBBLE, PASS: AI_ACTIONS.PASS, SHOOT: AI_ACTIONS.SHOOT };
+
+  const action  = _weightedPick(actions, weights);
   const value   = _intentValue(aiPlayer, action);
 
   return { action, value };
 }
 
-function _intentWeights(row) {
-  // [Press, Block, Dribble, Pass, Shoot]
+function _defendingWeights(row) {
+  // [Press, Block]
   switch (row) {
-    case 2: return [25, 15, 20, 15, 25]; // aggressive
-    case 3: return [20, 15, 25, 20, 20];
-    case 4: return [10, 25, 25, 30, 10]; // balanced
-    case 5: return [10, 30, 20, 35,  5]; // defensive
-    default:return [15, 20, 25, 25, 15];
+    case 5: case 6: return [20, 80]; // Back: prioritize block
+    case 1: case 2: return [70, 30]; // Front: prioritize press
+    default:        return [50, 50];
+  }
+}
+
+function _attackingWeights(row) {
+  // [Dribble, Pass, Shoot]
+  switch (row) {
+    case 1: case 2: return [20, 10, 70]; // Close to goal: shoot!
+    case 5: case 6: return [40, 60,  0]; // Far back: dribble/pass out
+    default:        return [40, 40, 20];
   }
 }
 

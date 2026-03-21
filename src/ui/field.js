@@ -18,14 +18,21 @@ function zoneToXY(zone) {
   const row = parseInt(zone[0]);
   const col = zone[1];
   const x = PAD + colIdx(col) * CELL_W + CELL_W / 2;
-  const y = PAD + rowIdx(row) * CELL_H + CELL_H / 2;
+  // Row 1 (Human GK) at bottom, Row 6 (AI GK) at top
+  let y;
+  if (row === 7) y = PAD - 3; // Inside AI Net
+  else if (row === 0) y = PAD + 6 * CELL_H + 3; // Inside Human Net
+  else y = PAD + (6 - row) * CELL_H + CELL_H / 2;
+  
   return { x, y };
 }
 
 let _svgEl = null;
+let _dispatch = null;
 
-export function initField(container) {
+export function initField(container, dispatch) {
   if (!container) return;
+  _dispatch = dispatch;
   
   container.innerHTML = '';
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -51,65 +58,135 @@ export function initField(container) {
     }
   }
 
+  // Nets
+  const netW = CELL_W * 0.8;
+  const netH = 6;
+  // Top Net (AI)
+  const topNet = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  topNet.setAttribute('x', PAD + CELL_W + (CELL_W - netW)/2);
+  topNet.setAttribute('y', PAD - netH);
+  topNet.setAttribute('width', netW);
+  topNet.setAttribute('height', netH);
+  topNet.setAttribute('fill', 'rgba(255,255,255,0.2)');
+  topNet.setAttribute('stroke', '#fff');
+  topNet.setAttribute('rx', 2);
+  topNet.setAttribute('class', 'minimap-net');
+  svg.appendChild(topNet);
+
+  // Bottom Net (Human)
+  const botNet = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  botNet.setAttribute('x', PAD + CELL_W + (CELL_W - netW)/2);
+  botNet.setAttribute('y', PAD + 6 * CELL_H);
+  botNet.setAttribute('width', netW);
+  botNet.setAttribute('height', netH);
+  botNet.setAttribute('fill', 'rgba(255,255,255,0.2)');
+  botNet.setAttribute('stroke', '#fff');
+  botNet.setAttribute('rx', 2);
+  botNet.setAttribute('class', 'minimap-net');
+  svg.appendChild(botNet);
+
   container.appendChild(svg);
   _svgEl = svg;
 }
 
 export function renderField(state) {
-  if (!_svgEl) {
-    const container = document.getElementById('field-minimap-v2');
-    if (container) initField(container);
-    else return;
-  }
+  if (!_svgEl) return;
 
-  // Remove existing entities
-  _svgEl.querySelectorAll('.player-dot, .ball-dot, .zone-highlight').forEach(el => el.remove());
-
-  // Ball/Active Zone Highlight
-  if (state.ballZone) {
+  // 1. Zone Highlight (Reuse or Create)
+  let highlight = _svgEl.querySelector('.zone-highlight');
+  // Hide highlight during goal animation or kickoff setup
+  const shouldShow = state.ballZone && state.phase !== 'GOAL_ANIMATION' && state.phase !== 'KICKOFF';
+  
+  if (shouldShow) {
+    if (!highlight) {
+      highlight = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      highlight.setAttribute('class', 'zone-highlight');
+      highlight.setAttribute('width', CELL_W - 2);
+      highlight.setAttribute('height', CELL_H - 2);
+      highlight.setAttribute('rx', 6);
+      highlight.setAttribute('fill', 'rgba(245,200,66,0.08)');
+      highlight.setAttribute('stroke', 'var(--accent)');
+      highlight.setAttribute('stroke-width', '1');
+      _svgEl.insertBefore(highlight, _svgEl.firstChild);
+    }
     const r = parseInt(state.ballZone[0]);
     const c = colIdx(state.ballZone[1]);
-    const highlight = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     highlight.setAttribute('x', PAD + c * CELL_W + 1);
-    highlight.setAttribute('y', PAD + (r-1) * CELL_H + 1);
-    highlight.setAttribute('width', CELL_W - 2);
-    highlight.setAttribute('height', CELL_H - 2);
-    highlight.setAttribute('rx', 6);
-    highlight.setAttribute('fill', 'rgba(245,200,66,0.08)');
-    highlight.setAttribute('stroke', 'var(--accent)');
-    highlight.setAttribute('stroke-width', '1');
-    highlight.setAttribute('class', 'zone-highlight');
-    _svgEl.appendChild(highlight);
-  }
+    highlight.setAttribute('y', PAD + (6 - r) * CELL_H + 1);
+  } else if (highlight) highlight.remove();
 
-  /** 
-   * Entity Offset Logic:
-   * Human: top-left (-10, -8)
-   * AI: top-right (+10, -8)
-   * Ball: bottom-center (0, +8)
-   */
-  state.humans.forEach(p => _drawDot(p.zone, '#5285e0', '#fff', -10, -8, 'player-dot'));
-  state.ais.forEach(p => _drawDot(p.zone, '#ff9f43', '#fff', 10, -8, 'player-dot'));
+  // 2. Players (Stateful update for animation)
+  const allPlayers = [...state.humans, ...state.ais];
+  
+  allPlayers.forEach(p => {
+    const isHuman = state.humans.includes(p);
+    const isSelected = p.id === state.selectedHumanId;
+    const fill = isHuman ? '#5285e0' : '#ff9f43';
+    const ox = isHuman ? -10 : 10;
+    const oy = -8;
+    _drawOrUpdateDot(p, fill, isSelected ? 'var(--accent)' : '#fff', ox, oy, isSelected);
+  });
+
+  // 3. Ball
+  let ball = _svgEl.querySelector('.ball-dot');
   if (state.ballZone) {
-    _drawDot(state.ballZone, '#fff', '#000', 0, 8, 'ball-dot', 3.5);
-  }
+    const { x, y } = zoneToXY(state.ballZone);
+    if (!ball) {
+      ball = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      ball.setAttribute('class', 'ball-dot');
+      ball.setAttribute('r', 3.5);
+      ball.setAttribute('fill', '#fff');
+      ball.setAttribute('stroke', '#000');
+      ball.setAttribute('stroke-width', '1');
+      ball.setAttribute('filter', 'drop-shadow(0 0 4px rgba(255,255,255,0.8))');
+      _svgEl.appendChild(ball);
+    }
+    const isGoal = state.ballZone === '0B' || state.ballZone === '7B';
+    ball.setAttribute('cx', x);
+    ball.setAttribute('cy', y + (isGoal ? 0 : 8));
+  } else if (ball) ball.remove();
 }
 
-function _drawDot(zone, fill, stroke, ox, oy, className, radius = 5) {
-  if (!zone) return;
-  const { x, y } = zoneToXY(zone);
-  const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-  circle.setAttribute('cx', x + ox);
-  circle.setAttribute('cy', y + oy);
-  circle.setAttribute('r', radius);
-  circle.setAttribute('fill', fill);
-  circle.setAttribute('stroke', stroke);
-  circle.setAttribute('stroke-width', '1');
-  circle.setAttribute('class', className);
+function _drawOrUpdateDot(player, fill, stroke, ox, oy, isSelected) {
+  if (!player.zone) return;
+  const { x, y } = zoneToXY(player.zone);
+  const targetX = x + ox;
+  const targetY = y + oy;
   
-  if (className === 'ball-dot') {
-     circle.setAttribute('filter', 'drop-shadow(0 0 4px rgba(255,255,255,0.8))');
+  let group = _svgEl.querySelector(`[data-player-id="${player.id}"]`);
+  
+  if (!group) {
+    group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    group.setAttribute('class', 'player-group');
+    group.setAttribute('data-player-id', player.id);
+    group.style.cursor = 'pointer';
+    group.style.pointerEvents = 'all';
+
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('r', 8); 
+    circle.setAttribute('fill', fill);
+    circle.setAttribute('stroke', stroke);
+    circle.setAttribute('stroke-width', isSelected ? '2' : '1.5');
+    circle.setAttribute('filter', isSelected ? 'drop-shadow(0 0 4px var(--accent))' : 'none');
+    circle.setAttribute('cx', 0); // Local center
+    circle.setAttribute('cy', 0);
+    group.appendChild(circle);
+
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('class', 'minimap-text');
+    text.setAttribute('x', 0); // Local center
+    text.setAttribute('y', 0);
+    text.textContent = player.number;
+    group.appendChild(text);
+
+    group.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (_dispatch) _dispatch({ type: 'SELECT_PLAYER', playerId: player.id });
+    });
+
+    _svgEl.appendChild(group);
   }
 
-  _svgEl.appendChild(circle);
+  // Update position (Animation triggered by CSS transitions on 'transform')
+  group.setAttribute('transform', `translate(${targetX}, ${targetY})`);
 }
