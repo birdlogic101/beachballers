@@ -11,12 +11,13 @@ import { MOVES } from './data/moves.js';
 import { 
   setupDuel, 
   resolveAction, 
-  getEffectiveAttackValue, 
+  resolveBlockResolution,
+  getEffectiveValue, 
   applySignatureSkill,
   applyMoveEffect 
 } from './core/duel.js';
 import { cascade, mirrorCascade, getRole } from './core/formation.js';
-import { updateHeat, updateHeatOnSave, canPress } from './core/heat.js';
+import { updateMomentum, canPress } from './core/momentum.js';
 import { getPassTarget, passTriggersRipple } from './core/pass.js';
 import { generateIntent } from './core/ai.js';
 import { tick, isMatchOver } from './core/clock.js';
@@ -58,7 +59,7 @@ function dispatch(action) {
       // RB gets the ball: Human huRB is in 3C, AI aiRB is in 4A
       nextState.ballZone = toss === 'human' ? '3C' : '4A';
       
-      console.log('Toss Result:', toss, 'Ball starts at RB in:', nextState.ballZone);
+      console.log('Toss Result:', toss, 'Ball starts at:', nextState.ballZone);
       
       nextState.phase = PHASE.DUEL_SETUP;
       nextState = _setupNextDuel(nextState);
@@ -77,16 +78,77 @@ function dispatch(action) {
       break;
 
     case 'TRIGGER_GK_STAGE':
+      const reflex = _calculateReflex(action.modifiedShotVal, action.gkVal);
+      console.log(`[REFLEX-CHECK] Shot=${action.modifiedShotVal}, DIV=${action.gkVal}, Chance=${reflex?.chance}, Success=${reflex?.success}`);
+      
       nextState.resolution = {
         ...nextState.resolution,
         stage: 2,
         rolledValue: action.modifiedShotVal,
         defendValue: action.gkVal,
-        finalWinner: action.finalWinner,
-        gkId: action.gkId
+        baseDIV: action.gkVal, // Anchor for flicker
+        winner: action.winner,
+        gkId: action.gkId,
+        defenderId: action.gkId, // Fix for Momentum Gain
+        reflexStatus: reflex ? 'rolling' : null,
+        reflexChance: reflex ? reflex.chance : 0,
+        reflexSuccess: reflex ? reflex.success : false,
+        defenderName: action.defenderName,
+        statusText: reflex ? "GK MIRACLE REFLEX?!" : "CHALLENGING GOALKEEPER..."
       };
-      // Finalize after 1.5s
-      setTimeout(() => dispatch({ type: 'FINALIZE_RESOLUTION' }), 1500);
+      
+      if (reflex) {
+        // Visual Flicker Loop
+        let flickerCount = 0;
+        const shotValue = action.modifiedShotVal;
+        const gkBase = action.gkVal;
+        
+        const flickerInterval = setInterval(() => {
+          flickerCount++;
+          // NEWS: Flicker through the entire range [Base, Shot] for visceral "struggle"
+          const flickerVal = Math.floor(gkBase + Math.random() * (shotValue - gkBase + 1));
+          dispatch({ type: 'GK_FLICKER', val: flickerVal });
+          
+          if (flickerCount >= 10) {
+            clearInterval(flickerInterval);
+            dispatch({ type: 'RESOLVE_REFLEX' });
+          }
+        }, 120);
+      } else {
+        setTimeout(() => dispatch({ type: 'FINALIZE_RESOLUTION' }), 1500);
+      }
+      break;
+
+    case 'GK_FLICKER':
+      if (nextState.resolution) {
+        nextState.resolution.defendValue = action.val;
+      }
+      break;
+
+    case 'RESOLVE_REFLEX':
+      if (nextState.resolution) {
+        const isSuccess = nextState.resolution.reflexSuccess;
+        console.log(`[REFLEX-RESULT] Landed on: ${isSuccess ? 'MIRACLE' : 'EFFORT'}, Success=${isSuccess}`);
+        
+        nextState.resolution.reflexStatus = isSuccess ? 'saved' : 'failed';
+        nextState.resolution.statusText = isSuccess 
+          ? "UNBELIEVABLE MIRACLE SAVE!" 
+          : "REFLEXES BEATEN!";
+        
+        // Final landing value: 
+        // If success: match the shot. 
+        // If failure: show a "High Effort" near-miss value for visual drama.
+        if (isSuccess) {
+           nextState.resolution.defendValue = nextState.resolution.rolledValue;
+           nextState.resolution.winner = 'defender';
+        } else {
+           const base = nextState.resolution.baseDIV || nextState.resolution.defendValue;
+           const margin = nextState.resolution.rolledValue - base;
+           nextState.resolution.defendValue = Math.floor(base + (Math.random() * margin * 0.8));
+        }
+
+        setTimeout(() => dispatch({ type: 'FINALIZE_RESOLUTION' }), 2000);
+      }
       break;
 
     case 'RESTART':
@@ -143,43 +205,45 @@ function dispatch(action) {
  */
 function _setupNextDuel(s) {
   const ns = { ...s };
-  console.log('Setup Duel at:', ns.ballZone, 'Possession:', ns.possession);
+  console.log(`[SYSTEM] Setting up duel at ${ns.ballZone} | Possession: ${ns.possession}`);
 
-  const attacker = ns.possession === 'human' 
+  let attacker = ns.possession === 'human' 
     ? ns.humans.find(p => p.zone === ns.ballZone)
     : ns.ais.find(p => p.zone === ns.ballZone);
 
-  const defender = ns.possession === 'human'
+  let defender = ns.possession === 'human'
     ? ns.ais.find(p => p.zone === ns.ballZone)
     : ns.humans.find(p => p.zone === ns.ballZone);
 
+  // Systemic Fallback: If no player found in zone (data error), pick first available
   if (!attacker) {
-    console.warn('No attacker found in zone:', ns.ballZone);
-    return ns;
+    console.warn(`[SYSTEM] No attacker found in ${ns.ballZone}! Falling back to first squad member.`);
+    attacker = ns.possession === 'human' ? ns.humans[0] : ns.ais[0];
   }
 
   if (!defender) {
-    // 1v0 state (GK possession)
+    console.log(`[SYSTEM] Entering 1v0 mode at ${ns.ballZone}`);
     ns.phase = PHASE.ONE_V_ZERO;
     const isHumanPoss = (ns.possession === 'human');
     ns.activeDuel = {
       attacker: attacker.id,
       defender: null,
-      touchUnits: Math.max(3, attacker.stats.SPE),
+      touchUnits: Math.max(3, attacker.stats.SPE || 3),
       movesPlayed: [],
-      moveHand: [...MOVES],
-      // For Human: show 'Block' to filter moves to Blue. For AI: set real intent to Pass.
-      aiIntent: isHumanPoss ? { action: 'Block', value: 0 } : { action: 'pass', value: attacker.stats.PAS.base },
+      moveHand: [], // Hidden (§7.5)
+      aiIntent: isHumanPoss ? { action: 'block', value: 0 } : { action: 'pass', value: (attacker.stats.PAS || 0) },
       buffs: {}
     };
-    return ns;
   } else {
-    // Standard duel setup
+    console.log(`[SYSTEM] Duel localized: ${attacker.id} (ATK) vs ${defender.id} (DEF)`);
     const isAIDefending = (ns.possession === 'human');
     const aiParticipant = isAIDefending ? defender : attacker;
     
+    // AI Intent logic
     const intent = generateIntent(aiParticipant, aiParticipant.zone, isAIDefending);
+    console.log(`[DUEL-SETUP] AI Participant: ${aiParticipant.name}, Zone: ${aiParticipant.zone}, Momentum: ${aiParticipant.momentum}`);
     const duelData = setupDuel(attacker, defender, intent);
+    
     ns.activeDuel = duelData;
     ns.phase = PHASE.PLAYER_ACTION;
   }
@@ -196,6 +260,7 @@ function _setupNextDuel(s) {
     else ns.selectedAIId = defender.id;
   }
 
+  console.log('[SYSTEM] Active Duel Object:', ns.activeDuel);
   return ns;
 }
 
@@ -221,7 +286,7 @@ function _handlePlayMove(s, moveId) {
     : ns.ais.find(p => p.id === ns.activeDuel.attacker);
 
   if (attacker) {
-    const { buffs, heatDelta, fitnessDelta } = applyMoveEffect(ns, move);
+    const { buffs, momentumDelta, fitnessDelta } = applyMoveEffect(ns, move);
     ns.activeDuel.buffs = buffs;
     
     // Apply combo bonus to the CURRENT move's primary stat if applicable
@@ -229,7 +294,7 @@ function _handlePlayMove(s, moveId) {
       ns.activeDuel.buffs[move.effect.stat] = (ns.activeDuel.buffs[move.effect.stat] || 0) + comboBonus;
     }
     
-    if (heatDelta) attacker.heat = updateHeat(attacker.heat, 'bonus', heatDelta);
+    if (momentumDelta) attacker.momentum = updateMomentum(attacker.momentum, 'bonus', momentumDelta);
     if (fitnessDelta) {
       attacker.fitness = Math.max(0, (attacker.fitness || 20) + fitnessDelta);
       // Check for injury
@@ -247,7 +312,7 @@ function _handlePlayMove(s, moveId) {
     
     // Perma-buff for 'match' duration moves
     if (move.effect.duration === 'match' && move.effect.stat) {
-       attacker.stats[move.effect.stat].base += move.effect.bonus;
+       attacker.stats[move.effect.stat] += move.effect.bonus;
     }
   }
 
@@ -255,197 +320,276 @@ function _handlePlayMove(s, moveId) {
 }
 
 function _handleExitAction(s, type) {
-  let ns = { ...s };
-  const duel = ns.activeDuel;
-  
-  // 1. Tick clock
-  ns.clock = tick(ns.clock);
-  if (isMatchOver(ns.clock)) {
-    ns.phase = PHASE.MATCH_OVER;
-    _showGameOver(ns);
-    return ns;
-  }
+  console.log(`[SYSTEM] EXIT_ACTION Triggered phase: ${s.phase} | type: ${type}`);
+  try {
+    let ns = { ...s };
+    const duel = ns.activeDuel;
+    
+    // 1. Tick clock
+    ns.clock = tick(ns.clock);
+    if (isMatchOver(ns.clock)) {
+      ns.phase = PHASE.MATCH_OVER;
+      _showGameOver(ns);
+      return ns;
+    }
 
-  const isHumanAttacker = ns.possession === 'human';
-  const human = isHumanAttacker 
-    ? ns.humans.find(h => h.id === duel.attacker)
-    : ns.humans.find(h => h.id === duel.defender);
-  
-  const ai = isHumanAttacker
-    ? ns.ais.find(p => p.id === duel.defender)
-    : ns.ais.find(p => p.id === duel.attacker);
+    const isHumanAttacker = ns.possession === 'human';
+    const human = isHumanAttacker 
+      ? ns.humans.find(h => h.id === duel.attacker)
+      : ns.humans.find(h => h.id === duel.defender);
+    
+    const ai = isHumanAttacker
+      ? ns.ais.find(p => p.id === duel.defender)
+      : ns.ais.find(p => p.id === duel.attacker);
 
-  ns.ballState = 'GROUND'; // Reset air state on every touch resolution
+    ns.ballState = 'GROUND'; // Reset air state on every touch resolution
 
-  const isOneVZero = (ns.phase === PHASE.ONE_V_ZERO);
+    const isOneVZero = (ns.phase === PHASE.ONE_V_ZERO);
 
-  if (isOneVZero) {
-    // Uncontested distribution (GK save result) — Bypasses rolls/participants (§1v0)
-    ns.phase = PHASE.RESOLUTION;
-    ns.resolution = {
-      actionType: type,
-      stage: 0,
-      isHuman: isHumanAttacker,
-      isOneVZero: true,
-      winner: 'attacker'
-    };
-    setTimeout(() => dispatch({ type: 'FINALIZE_RESOLUTION' }), 800);
-    return ns;
-  }
-
-  if (!human || !ai) {
-    console.warn('Missing participants for resolution.');
-    return ns;
-  }
-
-  const attacker = isHumanAttacker ? human : ai;
-  const defender = isHumanAttacker ? ai : human;
-
-  // 2. Human rolls based on chosen action; AI uses fixed intent value
-  let statKey = _getStatKey(type); 
-  if (isHumanAttacker && duel.buffs.convertTo) {
-    console.log('CONVERTING Action Stat to:', duel.buffs.convertTo);
-    statKey = duel.buffs.convertTo;
-  }
-  
-  let humanVal = getEffectiveAttackValue(human, statKey, duel.buffs, human.volatility);
-  humanVal = applySignatureSkill(human, type, humanVal);
-
-  // AI intent value modified by buffs (e.g. Wind Wall)
-  const aiVal = Math.max(0, duel.aiIntent.value + (duel.buffs.aiValueDelta || 0));
-  
-  // Distinguish who is 'attacker' for resolution function logic
-  const attackerVal = isHumanAttacker ? humanVal : aiVal;
-  const defenderVal = isHumanAttacker ? aiVal : humanVal;
-
-  // 3. Resolve
-  const attackerAction = isHumanAttacker ? type : duel.aiIntent.action.toLowerCase();
-
-  if (attackerAction === 'shoot' && !isOneVZero) {
-    // 2-PHASE SHOOT RESOLUTION (§8)
-    const isGoalZoneShot = (isHumanAttacker && attacker.zone === '6B') || (!isHumanAttacker && attacker.zone === '1B');
-
-    if (isGoalZoneShot) {
-      // In Goal Zone: Skip Stage 1, go straight to Finish (§8: Phase 2 only)
+    if (isOneVZero) {
+      // Uncontested distribution (GK save result) — Bypasses rolls/participants (§1v0)
       ns.phase = PHASE.RESOLUTION;
-      const gk = isHumanAttacker 
-        ? ns.ais.find(p => getRole(p.zone) === 'GK')
-        : ns.humans.find(p => getRole(p.zone) === 'GK');
-      
-      if (!gk) {
-        console.error('GK not found for Goal Zone shot!');
-        return _handleSuccess(ns, 'shoot');
+      const attacker = isHumanAttacker ? human : ai;
+      ns.resolution = {
+        actionType: type,
+        stage: 0,
+        isHuman: isHumanAttacker,
+        isOneVZero: true,
+        winner: 'attacker',
+        attackerName: attacker?.name || "Goalkeeper",
+        defenderName: "",
+        statusText: "UNCONTESTED DISTRIBUTION"
+      };
+      setTimeout(() => dispatch({ type: 'FINALIZE_RESOLUTION' }), 800);
+      return ns;
+    }
+
+    if (!human || !ai) {
+      console.warn('Missing participants for resolution.');
+      return ns;
+    }
+
+    const attacker = isHumanAttacker ? human : ai;
+    const defender = isHumanAttacker ? ai : human;
+
+    // 2. Human rolls based on chosen action; AI uses fixed intent value
+    let statKey = _getStatKey(type); 
+    if (isHumanAttacker && duel.buffs.convertTo) {
+      console.log('CONVERTING Action Stat to:', duel.buffs.convertTo);
+      statKey = duel.buffs.convertTo;
+    }
+    
+    let humanVal = getEffectiveValue(human, statKey, duel.buffs, type, true);
+    humanVal = applySignatureSkill(human, type, humanVal);
+
+    // 2b. AI rolls (fixed values) accounting for buffs/penalties
+    const aiAction = duel.aiIntent.action.toLowerCase();
+    
+    // NEWS (§11.3): Use the pre-rolled intent value as the baseline to ensure margin consistency
+    let aiVal = (duel.aiIntent.value || 0) + (duel.buffs.aiValueDelta || 0);
+    
+    // Apply signature skill on top of the intent if relevant (e.g. Marco AI Clinical)
+    if (isHumanAttacker === false) {
+       aiVal = applySignatureSkill(ai, aiAction, aiVal);
+    }
+    
+    // Distinguish who is 'attacker' for resolution function logic
+    const attackerVal = isHumanAttacker ? humanVal : aiVal;
+    const defenderVal = isHumanAttacker ? aiVal : humanVal;
+
+    // 3. Resolve
+    const attackerAction = isHumanAttacker ? type : duel.aiIntent.action.toLowerCase();
+    const defenderAction = isHumanAttacker ? duel.aiIntent.action.toLowerCase() : type;
+
+    if (attackerAction === 'shoot') {
+      // 2-PHASE SHOOT RESOLUTION (§8) - Mandatory even in 1v0
+      const isGoalZoneShot = (isHumanAttacker && attacker.zone === '6B') || (!isHumanAttacker && attacker.zone === '1B');
+
+      if (isGoalZoneShot) {
+        // In Goal Zone: Skip Stage 1, go straight to Finish (§8: Phase 2 only)
+        ns.phase = PHASE.RESOLUTION;
+        const gk = isHumanAttacker 
+          ? ns.ais.find(p => getRole(p.zone) === 'GK')
+          : ns.humans.find(p => getRole(p.zone) === 'GK');
+        
+        if (!gk) {
+          console.error('GK not found for Goal Zone shot!');
+          return _handleSuccess(ns, 'shoot');
+        }
+
+        const isHumanGK = !isHumanAttacker;
+        const gkValBase = getEffectiveValue(gk, 'DIV', {}, 'save', isHumanGK);
+        const gkVal = applySignatureSkill(gk, 'save', gkValBase);
+        let winner = resolveAction(attackerVal, gkVal);
+        
+        const reflex = _calculateReflex(attackerVal, gkVal);
+
+        const defender = isHumanGK 
+          ? ns.humans.find(p => p.id === gk.id) 
+          : ns.ais.find(p => p.id === gk.id);
+        const latestAttacker = (isHumanAttacker
+          ? ns.humans.find(p => p.id === duel.attacker)
+          : ns.ais.find(p => p.id === duel.attacker));
+
+        ns.resolution = {
+          actionType: 'shoot',
+          humanAction: isHumanAttacker ? 'shoot' : 'save',
+          aiAction: isHumanAttacker ? 'save' : 'shoot',
+          stage: 2,
+          isHuman: isHumanAttacker,
+          humanVal: humanVal,
+          aiVal: aiVal,
+          rolledValue: attackerVal,
+          defendValue: gkVal,
+          baseDIV: gkVal, // CRITICAL: Fix for NaN in Reflex Visuals
+          winner: winner,
+          reflexStatus: reflex ? 'rolling' : null,
+          reflexChance: reflex ? reflex.chance : 0,
+          reflexSuccess: reflex ? reflex.success : false,
+          gkId: gk.id,
+          attackerId: duel.attacker,
+          defenderId: gk.id,
+          attackerName: latestAttacker?.name || "Attacker",
+          defenderName: defender?.name || "Goalkeeper",
+          statusText: winner === 'attacker' ? "CHALLENGING GOALKEEPER..." : "GK SAVED!"
+        };
+
+        if (reflex) {
+          setTimeout(() => dispatch({ type: 'RESOLVE_REFLEX' }), 1800);
+        } else {
+          setTimeout(() => dispatch({ type: 'FINALIZE_RESOLUTION' }), 2000);
+        }
+        return ns;
       }
 
-      const gkVal = gk.stats.COM.base;
-      const finalWinner = resolveAction(attackerVal, gkVal);
+      // STAGE 1: vs Field Defender (Outside the Box)
+      const isBlock = isHumanAttacker ? (duel.aiIntent.action === 'block') : (type === 'block');
+      let stage1Winner;
+      let modifiedShotVal = attackerVal; 
 
+      if (isOneVZero) {
+        // Uncontested Shot: Auto-pass Stage 1
+        stage1Winner = 'attacker';
+        modifiedShotVal = attackerVal;
+      } else {
+        if (!isBlock) {
+          stage1Winner = resolveAction(attackerVal, defenderVal);
+          if (stage1Winner === 'attacker') {
+            modifiedShotVal = attackerVal; 
+          }
+        } else {
+          const blockRes = resolveBlockResolution(attackerVal, defenderVal);
+          if (blockRes === 'steal') {
+            stage1Winner = 'defender';
+            modifiedShotVal = 0;
+          } else {
+            modifiedShotVal = Math.max(0, attackerVal - defenderVal);
+            stage1Winner = 'attacker';
+          }
+        }
+      }
+
+      // Entering Resolution Stage 1
+      ns.phase = PHASE.RESOLUTION;
       ns.resolution = {
         actionType: 'shoot',
-        humanAction: isHumanAttacker ? 'shoot' : 'block',
-        aiAction: isHumanAttacker ? 'block' : 'shoot',
-        stage: 2,
+        humanAction: type,
+        aiAction: isOneVZero ? 'block' : duel.aiIntent.action.toLowerCase(),
+        stage: 1,
+        isHuman: isHumanAttacker,
+        humanVal: humanVal,
+        aiVal: isOneVZero ? 0 : aiVal,
+        isBlock: isBlock,
+        isOneVZero: isOneVZero,
+        stage1Winner: stage1Winner,
+        rolledValue: attackerVal,
+        defendValue: isOneVZero ? 0 : defenderVal,
+        winner: stage1Winner,
+        attackerId: duel.attacker,
+        defenderId: isOneVZero ? null : duel.defender,
+        attackerName: human?.name || ai?.name,
+        defenderName: isOneVZero ? "NONE" : (isHumanAttacker ? ai?.name : human?.name),
+        statusText: isOneVZero ? "UNCONTESTED SHOT!" : (stage1Winner === 'attacker' ? "DEFENDER BYPASSED!" : "STRIKE BLOCKED!")
+      };
+
+      if (stage1Winner === 'defender') {
+         setTimeout(() => dispatch({ type: 'FINALIZE_RESOLUTION' }), 1800);
+      } else {
+         setTimeout(() => {
+           // Narrative beat: CHALLENGING GK starts
+           const gk = !isHumanAttacker 
+             ? ns.humans.find(p => getRole(p.zone) === 'GK')
+             : ns.ais.find(p => getRole(p.zone) === 'GK');
+
+           if (!gk) return dispatch({ type: 'FINALIZE_RESOLUTION' });
+
+           const gkValBase = getEffectiveValue(gk, 'DIV', {}, 'save', !isHumanAttacker);
+           const gkVal = applySignatureSkill(gk, 'save', gkValBase);
+           const winner = resolveAction(modifiedShotVal, gkVal);
+           
+           dispatch({ 
+             type: 'TRIGGER_GK_STAGE', 
+             modifiedShotVal, 
+             gkVal,
+             winner,
+             gkId: gk.id
+           });
+         }, 1800);
+      }
+      return ns;
+    } else {
+      // STANDARD RESOLUTION
+      let winner;
+      let blockRes = null;
+
+      if (defenderAction === 'block' && !isOneVZero) {
+        blockRes = resolveBlockResolution(attackerVal, defenderVal);
+        winner = blockRes === 'steal' ? 'defender' : 'attacker';
+      } else {
+        winner = isOneVZero ? 'attacker' : resolveAction(attackerVal, defenderVal);
+      }
+
+      ns.phase = PHASE.RESOLUTION;
+      ns.resolution = {
+        actionType: isHumanAttacker ? type : duel.aiIntent.action.toLowerCase(),
+        humanAction: type,
+        aiAction: duel.aiIntent.action.toLowerCase(),
+        winner: winner,
+        blockRes: blockRes,
+        stage: 0,
         isHuman: isHumanAttacker,
         humanVal: humanVal,
         aiVal: aiVal,
         rolledValue: attackerVal,
-        defendValue: gkVal,
-        winner: finalWinner,
-        finalWinner: finalWinner,
-        gkId: gk.id
+        defendValue: isOneVZero ? 0 : defenderVal,
+        attackerId: duel.attacker,
+        defenderId: duel.defender
       };
 
-      setTimeout(() => dispatch({ type: 'FINALIZE_RESOLUTION' }), 1500);
-      return ns;
+      setTimeout(() => {
+        dispatch({ type: 'FINALIZE_RESOLUTION' });
+      }, 1500);
     }
 
-    const isBlock = isHumanAttacker ? (duel.aiIntent.action === 'Block') : (type === 'block');
-    
-    // STAGE 1: vs Field Defender (Outside the Box)
-    let stage1Winner;
-    let modifiedShotVal = attackerVal; 
-
-    if (!isBlock) {
-      stage1Winner = resolveAction(attackerVal, defenderVal);
-    } else {
-      if (defenderVal >= attackerVal) {
-        // Successful block stops ball (§8.1)
-        stage1Winner = 'defender';
-        modifiedShotVal = 0;
-      } else {
-        // Partial block reduces shot
-        modifiedShotVal = Math.max(1, attackerVal - defenderVal);
-        stage1Winner = 'attacker';
-      }
-    }
-
-    // Entering Resolution Stage 1
-    ns.phase = PHASE.RESOLUTION;
-    ns.resolution = {
-      actionType: 'shoot',
-      humanAction: type,
-      aiAction: duel.aiIntent.action.toLowerCase(),
-      stage: 1,
-      isHuman: isHumanAttacker,
-      humanVal: humanVal,
-      aiVal: aiVal,
-      isBlock: isBlock,
-      stage1Winner: stage1Winner,
-      rolledValue: attackerVal,
-      defendValue: defenderVal,
-      winner: stage1Winner
-    };
-
-    if (stage1Winner === 'defender') {
-       // Stopped by Press OR Clean Block
-       setTimeout(() => dispatch({ type: 'FINALIZE_RESOLUTION' }), 1500);
-    } else {
-       // Proceed to GK Finish
-       setTimeout(() => {
-         const gk = !isHumanAttacker 
-           ? ns.humans.find(p => getRole(p.zone) === 'GK')
-           : ns.ais.find(p => getRole(p.zone) === 'GK');
-
-         if (!gk) return dispatch({ type: 'FINALIZE_RESOLUTION' });
-
-         const gkVal = gk.stats.COM.base;
-         const finalWinner = resolveAction(modifiedShotVal, gkVal);
-         
-         dispatch({ 
-           type: 'TRIGGER_GK_STAGE', 
-           modifiedShotVal, 
-           gkVal,
-           finalWinner,
-           gkId: gk.id
-         });
-       }, 1000);
-    }
     return ns;
-  } else {
-    // STANDARD RESOLUTION (Dribble, Pass, 1v0 Shoot, OR Defending)
-    // In 1v0, attacker always wins
-    const winner = isOneVZero ? 'attacker' : resolveAction(attackerVal, defenderVal);
-
-    ns.phase = PHASE.RESOLUTION;
-    ns.resolution = {
-      actionType: isHumanAttacker ? type : duel.aiIntent.action.toLowerCase(),
-      humanAction: type,
-      aiAction: duel.aiIntent.action.toLowerCase(),
-      winner: winner,
-      stage: 0,
-      isHuman: isHumanAttacker,
-      humanVal: humanVal,
-      aiVal: aiVal,
-      rolledValue: attackerVal,
-      defendValue: isOneVZero ? 0 : defenderVal
-    };
-
-    setTimeout(() => {
-      dispatch({ type: 'FINALIZE_RESOLUTION' });
-    }, 1500);
+  } catch (err) {
+    console.error('[SYSTEM] FATAL ERROR IN RESOLUTION:', err);
+    return s;
   }
+}
 
-  return ns;
+function _calculateReflex(shotVal, gkVal) {
+  const s = Math.ceil(shotVal);
+  const g = Math.floor(gkVal);
+  if (s <= g) return null;
+  
+  const margin = s - g;
+  const chance = 1 / (margin + 1);
+  const roll = Math.random();
+  const success = roll < chance;
+  
+  console.log(`[MIRACLE-ROLL] Shot:${s}, DIV:${g}, Margin:${margin}, Chance:${chance.toFixed(3)}, Roll:${roll.toFixed(3)}, Success:${success}`);
+  return { chance, success };
 }
 
 function _finalizeResolution(s) {
@@ -453,46 +597,38 @@ function _finalizeResolution(s) {
   const res = ns.resolution;
   if (!res) return ns;
 
-  let winner;
-  if (res.actionType === 'shoot' && res.stage === 2) {
-    winner = res.finalWinner;
-  } else if (res.actionType === 'shoot' && res.stage === 1) {
-    winner = res.stage1Winner;
-  } else {
-    winner = res.winner;
-  }
-
+  const winner = res.winner;
   if (winner === 'attacker') {
+    res.statusText = "GOAL SCORED!";
     ns = _handleSuccess(ns, res.actionType);
   } else {
+    res.statusText = res.actionType === 'shoot' ? "SHOT SAVED!" : "CHALLENGE LOST";
     ns = _handleFailure(ns, res.actionType);
   }
+
 
   ns.resolution = null; // Clear
   return ns;
 }
 
 function _getStatKey(action) {
-  const map = { dribble: 'DRI', pass: 'PAS', shoot: 'SHO', press: 'AGG', block: 'COM' };
+  const map = { dribble: 'DRI', pass: 'PAS', shoot: 'SHO', press: 'AGG', block: 'COM', save: 'DIV' };
   return map[action] || 'PAS';
 }
 
 function _handleSuccess(s, type) {
   let ns = { ...s };
-  const attacker = ns.possession === 'human' 
-    ? ns.humans.find(p => p.id === ns.activeDuel.attacker)
-    : ns.ais.find(p => p.id === ns.activeDuel.attacker);
-
-  // Heat up
-  attacker.heat = updateHeat(attacker.heat, 'success');
+  const attackerId = s.activeDuel.attacker;
+  
+  // Re-acquire reference from ns
+  let attacker = (ns.humans.find(p => p.id === attackerId) || ns.ais.find(p => p.id === attackerId));
 
   if (type === 'dribble') {
     // Determine target before cascade to update ballZone
     const teamZones = (ns.possession === 'human' ? ns.humans : ns.ais)
-      .filter(p => p.id !== attacker.id && p.zone !== (ns.possession === 'human' ? '1B' : '6B'))
+      .filter(p => (p.id !== attackerId) && p.zone !== (ns.possession === 'human' ? '1B' : '6B'))
       .map(p => p.zone);
     
-    // We need to import dribbleTarget/mirrorDribbleTarget or just use the result of cascade
     const result = ns.possession === 'human' 
       ? cascade(ns, attacker.zone)
       : mirrorCascade(ns, attacker.zone);
@@ -502,12 +638,12 @@ function _handleSuccess(s, type) {
 
     // The attacker's new zone is the ball's new location
     const movedAttacker = (ns.possession === 'human' ? ns.humans : ns.ais)
-      .find(p => p.id === attacker.id);
+      .find(p => p.id === attackerId);
     
     if (movedAttacker) {
       ns.ballZone = movedAttacker.zone;
     } else {
-      console.error('Attacker lost after cascade:', attacker.id);
+      console.error('Attacker lost after cascade:', attackerId);
     }
   } else if (type === 'pass') {
     const target = getPassTarget(ns, attacker.zone);
@@ -522,6 +658,9 @@ function _handleSuccess(s, type) {
       ns.ballZone = '0B'; // Human Net
     }
     
+    // NEWS (§11.2): Goal resets ALL momentum for a fresh kickoff
+    [...ns.humans, ...ns.ais].forEach(p => p.momentum = 0);
+
     ns.phase = PHASE.GOAL_ANIMATION;
     
     // Determine who kicked off next
@@ -544,6 +683,47 @@ function _handleSuccess(s, type) {
         dispatch({ type: 'KICKOFF_RESET', nextPoss, nextBall });
       }
     }, 2000);
+  }
+
+  // Handle Momentum generation (§Momentum System)
+  const res = ns.resolution; 
+  if (res && res.winner === 'attacker') {
+    let momentumGain = 0;
+
+    if (res.isOneVZero) {
+      momentumGain = 1; // Flat +1 for uncontested distribution (V2.20)
+    } else {
+      const margin = Math.max(0, res.rolledValue - res.defendValue);
+      const isDefenderBlock = (ns.possession === 'human') ? (res.aiAction === 'block') : (res.humanAction === 'block');
+      momentumGain = isDefenderBlock ? 0 : margin; // Block "contains" momentum
+    }
+
+    console.log(`[DEBUG] MOMENTUM: Type=${type}, is1v0=${res.isOneVZero}, Gain=${momentumGain}`);
+
+    if (momentumGain > 0) {
+      // CRITICAL: Re-find attacker in the LATEST ns state (might have been replaced by cascade)
+      const latestAttacker = (ns.humans.find(p => p.id === attackerId) || ns.ais.find(p => p.id === attackerId));
+      
+      if (type === 'dribble' || type === 'shoot') {
+        if (latestAttacker) {
+          const oldMom = latestAttacker.momentum;
+          latestAttacker.momentum = Math.min(7, latestAttacker.momentum + momentumGain);
+          console.log(`[DEBUG] ATTACKER ${latestAttacker.name} MOM: ${oldMom} -> ${latestAttacker.momentum} (Gain: +${momentumGain})`);
+        }
+      } else if (type === 'pass') {
+        const receiverZone = ns.ballZone;
+        const receiver = (ns.possession === 'human' ? ns.humans : ns.ais).find(p => p.zone === receiverZone);
+        if (receiver) {
+          receiver.momentum = Math.min(7, receiver.momentum + momentumGain);
+          // Attacker loses momentum after a pass (§11.2)
+          if (latestAttacker) latestAttacker.momentum = 0; 
+        }
+      }
+    }
+
+    // NEWS (§11.2): Success resets opponent momentum to 0
+    const latestDefender = (ns.humans.find(p => p.id === res.defenderId) || ns.ais.find(p => p.id === res.defenderId));
+    if (latestDefender) latestDefender.momentum = 0;
   }
 
   return _setupNextDuel(ns);
@@ -585,31 +765,54 @@ function _handleFailure(s, type) {
     ? ns.humans.find(p => p.id === ns.activeDuel.attacker)
     : ns.ais.find(p => p.id === ns.activeDuel.attacker);
   
-  // Heat down
-  attacker.heat = updateHeat(attacker.heat, 'failure');
-  
-  if (type === 'shoot') {
-    // 1. Shooter drops back to Row 5/2 (§10.2)
-    const shooterId = s.activeDuel.attacker;
-    const isHumanShooter = (s.possession === 'human');
+  // Recovery Drop (§10.2 Ext): If possession flips in a Goal Zone, the loser drops back.
+  const isGoalZonePoss = (s.ballZone === '1B' || s.ballZone === '6B');
+  if (isGoalZonePoss) {
+    const loser = (s.possession === 'human') 
+      ? ns.humans.find(p => p.id === attackerId)
+      : ns.ais.find(p => p.id === attackerId);
     
-    if (isHumanShooter) {
-      const p = ns.humans.find(h => h.id === shooterId);
-      if (p && p.zone === '6B') p.zone = '5B';
-    } else {
-      const p = ns.ais.find(a => a.id === shooterId);
-      if (p && p.zone === '1B') p.zone = '2B';
+    if (loser) {
+      if (loser.zone === '1B') loser.zone = '2B';
+      if (loser.zone === '6B') loser.zone = '5B';
+      console.log(`RECOVERY DROP: ${loser.name} retreated from goal zone.`);
     }
+    
+    // Ball Reset: Ball belongs to the GK now (§8)
+    ns.ballZone = (ns.possession === 'human' ? '6B' : '1B'); // Flipping logic
+    // Wait! ns.possession was flipped at line 693. 
+    // If ns.possession is 'human', ball is at 1B.
+    ns.ballZone = (ns.possession === 'human' ? '1B' : '6B');
+  }
 
-    // 2. Ball Placement (§8)
-    // If it was a Stage 1 block/interception, ball stays in field. 
-    // If it was a Stage 2 GK save, ball glides to GK.
+  // 3. (Legacy check: Shooter drops back) - Already handled by Recovery Drop above but kept specialized for shots
+  if (type === 'shoot') {
+    // Stage 2 shots always land at GK net
     if (s.resolution?.stage === 2) {
       ns.ballZone = (ns.possession === 'human' ? '1B' : '6B');
-    } else {
-      // Stays in current duel zone (interception)
-      ns.ballZone = s.ballZone;
     }
+  }
+
+  // 2b. Momentum Gain for the new possessor (§6.3 / §11.1)
+  const margin = Math.max(0, res?.defendValue - res?.rolledValue);
+  const newAttacker = ns.possession === 'human' 
+    ? ns.humans.find(p => p.id === res?.defenderId)
+    : ns.ais.find(p => p.id === res?.defenderId);
+  
+  // Rule (§6.3): Block "contains" even the winner's momentum (Gain = 0)
+  // EXCEPT for Goalkeepers: who get +1 (Security Bonus)
+  const defenderAction = (ns.possession === 'human') ? res?.aiAction : res?.humanAction;
+  const isGK = newAttacker && (getRole(newAttacker.zone) === 'GK');
+  
+  let momentumGain = (defenderAction === 'block') ? 0 : margin;
+  if (isGK && defenderAction === 'block') momentumGain = 1;
+
+  console.log(`[DEBUG] STEAL MOMENTUM: Action=${defenderAction}, isGK=${isGK}, Margin=${margin}, Gain=${momentumGain}`);
+
+  if (newAttacker && momentumGain > 0) {
+    const oldMom = newAttacker.momentum;
+    newAttacker.momentum = Math.min(7, newAttacker.momentum + momentumGain);
+    console.log(`[DEBUG] NEW ATTACKER MOM: ${oldMom} -> ${newAttacker.momentum}`);
   }
 
   return _setupNextDuel(ns);
@@ -617,11 +820,15 @@ function _handleFailure(s, type) {
 
 // ─── Rendering ───────────────────────────────────────────────────────────────
 
+let _renderCount = 0;
 function _render(s) {
-  renderField(s);
-  renderHUD(s);
-  renderCarousel(s);
-  renderActions(s);
+  _renderCount++;
+  console.log(`[SYSTEM] Render Loop #${_renderCount} | Phase: ${s.phase}`);
+  
+  try { renderField(s); console.log('  -> Field Rendered'); } catch (e) { console.error('Error rendering Field:', e); }
+  try { renderHUD(s); console.log('  -> HUD Rendered'); } catch (e) { console.error('Error rendering HUD:', e); }
+  try { renderCarousel(s); console.log('  -> Carousel Rendered'); } catch (e) { console.error('Error rendering Carousel:', e); }
+  try { renderActions(s); console.log('  -> Actions Rendered'); } catch (e) { console.error('Error rendering Actions:', e); }
 }
 
 // ─── Internal UI Helpers ─────────────────────────────────────────────────────
@@ -672,4 +879,3 @@ window.addEventListener('DOMContentLoaded', () => {
   // Kickoff game state
   dispatch({ type: 'INIT' });
 });
-

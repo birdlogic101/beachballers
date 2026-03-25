@@ -1,333 +1,296 @@
 /**
- * hud.js — Heads-Up Display renderer.
- * Manages player portraits, larger heat bars (with numeric labels), 
- * and the focal Dilemma display (with dimmed volatility range).
+ * hud.js — Nuclear Rewrite V1.1
+ * Restoring Resolution display support.
  */
 
 import { formatClock } from '../core/clock.js';
 import { PHASE } from '../core/state.js';
+import { applySignatureSkill } from '../core/duel.js';
 
 let _lastState = null;
-let _hoveredAction = null; // 'dribble', 'pass', 'shoot' etc.
+let _hoveredAction = null; 
 
 export function initHUD() {
-  const actors = document.querySelectorAll('.duel-actor');
-  actors.forEach(actor => {
-    actor.addEventListener('click', () => {
-      const grid = actor.querySelector('.stat-grid');
-      if (grid) grid.classList.toggle('visible');
-    });
-  });
 }
 
 export function renderHUD(state) {
   _lastState = state;
+  const phase = state.phase;
+  const res = state.resolution;
   
   // 1. Meta (Clock, Score)
   const clockEl = document.getElementById('clock');
   if (clockEl) clockEl.textContent = formatClock(state.clock);
+  
+  const sH = document.getElementById('score-human');
+  const sA = document.getElementById('score-ai');
+  if (sH) sH.textContent = state.score.human;
+  if (sA) sA.textContent = state.score.ai;
 
-  const scoreHuman = document.getElementById('score-human');
-  if (scoreHuman) scoreHuman.textContent = state.score.human;
+  // 2. Element Visibility
+  const hEl = document.getElementById('actor-human');
+  const aEl = document.getElementById('actor-ai');
+  const dEl = document.getElementById('dilemma-container');
+  const pBall = document.getElementById('possession-ball');
 
-  const scoreAI = document.getElementById('score-ai');
-  if (scoreAI) scoreAI.textContent = state.score.ai;
-
-  // Ball State Indicator
-  const clockWrap = document.getElementById('match-meta');
-  if (clockWrap) {
-    let stateInd = clockWrap.querySelector('.ball-state-ind');
-    if (!stateInd) {
-      stateInd = document.createElement('div');
-      stateInd.className = 'ball-state-ind';
-      clockWrap.appendChild(stateInd);
+  const showHUD = (phase === 'PLAYER_ACTION' || phase === 'RESOLUTION' || phase === 'ONE_V_ZERO');
+  
+  if (hEl) hEl.style.display = showHUD ? 'flex' : 'none';
+  if (dEl) dEl.style.display = showHUD ? 'flex' : 'none';
+  
+  const is1v1 = showHUD && phase !== 'ONE_V_ZERO';
+  if (aEl) aEl.style.display = is1v1 ? 'flex' : 'none';
+  
+  if (pBall) {
+    pBall.style.display = showHUD ? 'block' : 'none';
+    if (showHUD) {
+      pBall.className = state.possession === 'human' ? 'pos-human' : 'pos-ai';
     }
-    stateInd.textContent = state.ballState === 'AIR' ? '⚽ AIR' : '';
-    stateInd.style.color = 'var(--accent)';
-    stateInd.style.fontSize = '12px';
-    stateInd.style.fontWeight = '900';
   }
 
-  // Tactical Cards
-  _renderTopCards(state);
-
-  // 2. Player Duel Actors
+  // 3. Content Population
   const allPlayers = [...(state.humans || []), ...(state.ais || [])];
-  const attacker = allPlayers.find(p => p.id === state.activeDuel?.attacker);
-  const defender = allPlayers.find(p => p.id === state.activeDuel?.defender);
-
+  const duel = state.activeDuel;
+  
   let humanActor = null;
   let aiActor = null;
 
-  if (attacker) {
-    const isHuman = state.humans.some(p => p.id === attacker.id);
-    if (isHuman) humanActor = attacker; else aiActor = attacker;
-  }
-  if (defender) {
-    const isHuman = state.humans.some(p => p.id === defender.id);
-    if (isHuman) humanActor = defender; else aiActor = defender;
-  }
-
-  const actorHumanEl = document.getElementById('actor-human');
-  const actorAIEl = document.getElementById('actor-ai');
-
-  if (state.phase === 'KICKOFF' || (!humanActor && !aiActor)) {
-    if (actorHumanEl) actorHumanEl.classList.add('hidden');
-    if (actorAIEl) actorAIEl.classList.add('hidden');
-    _hideDilemma();
-  } else if (state.phase === PHASE.ONE_V_ZERO) {
-    // FORCE SINGLE CARD: Only show the player who has the ball (§1v0)
-    if (state.possession === 'human') {
-      const actualAttacker = state.humans.find(p => p.id === state.activeDuel?.attacker);
-      if (actorHumanEl && actualAttacker) {
-        actorHumanEl.classList.remove('hidden');
-        _fillActor(actorHumanEl, actualAttacker, state.activeDuel?.buffs ?? {}, 'human', true);
-      }
-      if (actorAIEl) actorAIEl.classList.add('hidden');
-    } else {
-      const actualAttacker = state.ais.find(p => p.id === state.activeDuel?.attacker);
-      if (actorAIEl && actualAttacker) {
-        actorAIEl.classList.remove('hidden');
-        _fillActor(actorAIEl, actualAttacker, {}, 'ai', true);
-      }
-      if (actorHumanEl) actorHumanEl.classList.add('hidden');
-    }
-    _hideDilemma();
-  } else {
-    if (actorHumanEl) {
-      actorHumanEl.classList.remove('hidden');
-      if (humanActor) {
-        const hasPoss = state.possession === 'human';
-        _fillActor(actorHumanEl, humanActor, state.activeDuel?.buffs ?? {}, 'human', hasPoss);
-      }
-    }
-    if (actorAIEl) {
-      actorAIEl.classList.remove('hidden');
-      if (aiActor) {
-        const hasPoss = state.possession === 'ai';
-        _fillActor(actorAIEl, aiActor, {}, 'ai', hasPoss);
-      }
-    }
-    if (state.phase === PHASE.RESOLUTION && state.resolution?.isOneVZero) {
-      _hideDilemma();
-    } else {
-      _renderDilemma(state, humanActor, aiActor);
-    }
-  }
-
-  // Possession Ball
-  const pBall = document.getElementById('possession-ball');
-  if (pBall) {
-    const isShowing = state.phase !== 'KICKOFF' && state.phase !== 'MATCH_OVER' && state.possession;
-    pBall.classList.toggle('hidden', !isShowing);
-    if (isShowing) {
-      pBall.classList.toggle('pos-human', state.possession === 'human');
-      pBall.classList.toggle('pos-ai',    state.possession === 'ai');
-    }
-  }
-}
-
-/**
- * Called by actions.js to update the central dilemma on hover.
- */
-export function setHoveredAction(type) {
-  _hoveredAction = type;
-  if (_lastState) renderHUD(_lastState);
-}
-
-function _fillActor(el, player, buffs, team, hasPossession) {
-  // Stats (Center actors focus on Dilemma, only show bonus-aware grid)
-  const statGrid = el.querySelector('.actor-stats');
-  const statsToRender = team === 'human' ? ['DRI','PAS','SHO'] : ['AGG','COM'];
-  statGrid.innerHTML = '';
-  statsToRender.forEach(key => {
-    const base = player.stats[key].base;
-    const bonus = buffs[key] || 0;
+  if (showHUD && duel) {
+    const atk = allPlayers.find(p => p.id === duel.attacker);
+    const def = allPlayers.find(p => p.id === duel.defender);
     
-    const div = document.createElement('div');
-    div.className = 'stat-cell';
-    div.innerHTML = `
-      <span class="s-label">${key}</span>
-      <span class="s-value">${base + bonus}</span>
-    `;
-    statGrid.appendChild(div);
-  });
+    if (atk) {
+      if (atk.id.startsWith('hu')) humanActor = atk; else aiActor = atk;
+    }
+    if (def) {
+      if (def.id.startsWith('hu')) humanActor = def; else aiActor = def;
+    }
+
+    const isHumanAttacking = state.possession === 'human';
+    const hStats = isHumanAttacking ? ['DRI','PAS','SHO'] : ['AGG','COM'];
+    const aStats = isHumanAttacking ? ['AGG','COM'] : ['DRI','PAS','SHO'];
+
+    // GK Special Handling: Always show DIV
+    if (humanActor?.stats.DIV !== undefined) hStats.push('DIV');
+    if (aiActor?.stats.DIV !== undefined) aStats.push('DIV');
+
+    if (humanActor && hEl) _fillActor(hEl, humanActor, duel.buffs || {}, hStats);
+    if (aiActor && aEl) _fillActor(aEl, aiActor, {}, aStats);
+
+    // ─── GK PREVIEW (secondary card) ───
+    const hGK = allPlayers.find(p => p.id === 'huGK');
+    const aGK = allPlayers.find(p => p.id === 'aiGK');
+    const hGKPreview = document.getElementById('actor-human-gk');
+    const aGKPreview = document.getElementById('actor-ai-gk');
+
+    if (hGKPreview) {
+       // Only show human GK preview if human is DEFENDING and current actor isn't already the GK
+       const showH = !isHumanAttacking && (humanActor?.id !== 'huGK');
+       hGKPreview.classList.toggle('hidden', !showH);
+       if (showH && hGK) _fillActor(hGKPreview, hGK, {}, ['DIV']);
+    }
+    if (aGKPreview) {
+       // Only show AI GK preview if AI is DEFENDING and current actor isn't already the GK
+       const showA = isHumanAttacking && (aiActor?.id !== 'aiGK');
+       aGKPreview.classList.toggle('hidden', !showA);
+       if (showA && aGK) _fillActor(aGKPreview, aGK, {}, ['DIV']);
+    }
+    
+    _renderDilemma(state, humanActor, aiActor);
+  }
+
+  _renderTopCards(state);
+}
+
+function _fillActor(el, player, buffs, statList) {
+  if (!el) return;
+  const statGrid = el.querySelector('.stat-grid');
+  if (statGrid) {
+    statGrid.style.display = 'flex';
+    statGrid.innerHTML = '';
+    
+    statList.forEach(key => {
+      if (player.stats[key] === undefined) return;
+      const val = (player.stats[key] || 0) + (buffs[key] || 0);
+      statGrid.innerHTML += `
+        <div class="stat-cell">
+          <span class="s-label">${key}</span>
+          <span class="s-value">${val}</span>
+        </div>`;
+    });
+  }
+  
+  const portWrap = el.querySelector('.portrait-wrap');
+  if (portWrap) {
+    const img = portWrap.querySelector('img');
+    if (img) img.src = player.portrait;
+    portWrap.classList.toggle('momentum-active', player.momentum > 0);
+  }
 }
 
 function _renderTopCards(state) {
-  const leftEl = document.getElementById('player-info-left');
-  const rightEl = document.getElementById('player-info-right');
-  if (!leftEl || !rightEl) return;
+  const left = document.getElementById('player-info-left');
+  const right = document.getElementById('player-info-right');
+  const hP = (state.humans || []).find(p => p.id === state.selectedHumanId);
+  const aP = (state.ais || []).find(p => p.id === state.selectedAIId);
 
-  const hPlayer = (state.humans || []).find(p => p.id === state.selectedHumanId);
-  const aiPlayer = (state.ais || []).find(p => p.id === state.selectedAIId);
-
-  if (hPlayer) {
-    leftEl.classList.remove('hidden');
-    _fillMiniCard(leftEl, hPlayer, 'human');
-  } else leftEl.classList.add('hidden');
-
-  if (aiPlayer) {
-    rightEl.classList.remove('hidden');
-    _fillMiniCard(rightEl, aiPlayer, 'ai');
-  } else rightEl.classList.add('hidden');
+  if (left) {
+    left.style.display = hP ? 'flex' : 'none';
+    if (hP) _fillMiniCard(left, hP, 'human');
+  }
+  if (right) {
+    right.style.display = aP ? 'flex' : 'none';
+    if (aP) _fillMiniCard(right, aP, 'ai');
+  }
 }
 
-function _fillMiniCard(el, player, team) {
-  const stats = ['DRI','PAS','SHO','AGG','COM'];
+function _fillMiniCard(el, p, team) {
+  const momPct = (Math.max(0, p.momentum) / 7) * 100;
+  const stats = ['DRI','PAS','SHO','AGG','COM','DIV'].filter(s => p.stats[s] !== undefined);
   el.className = `top-player-info ${team}`;
-
-  const heatMin = -3;
-  const heatMax = 7;
-  const heatRange = 10;
-  // Percentage = ((Heat - Min) / Range) * 100
-  const normalizedHeat = Math.min(Math.max(player.heat, heatMin), heatMax);
-  const heatPct = ((normalizedHeat - heatMin) / heatRange) * 100;
-
   el.innerHTML = `
-    <img src="/${team}_player_portrait.png" class="mini-portrait" alt="${player.name}">
+    <img src="${p.portrait}" class="mini-portrait">
     <div class="mini-main">
       <div class="mini-name-row">
-        <span class="mini-name">${player.name}</span>
-        <span class="mini-number">#${player.number}</span>
+        <span class="mini-name">${p.name}</span>
+        <span class="mini-number">#${p.number}</span>
       </div>
       <div class="mini-stats">
-        ${stats.map(s => `
-          <div class="mini-stat-item">${s}<div class="mini-stat-val">${player.stats[s].base}</div></div>
+        ${stats.filter(s => p.stats[s] !== undefined).map(s => `
+          <div class="mini-stat-item">${s}<div class="mini-stat-val">${p.stats[s]}</div></div>
         `).join('')}
       </div>
-      <div class="sig-row">
-        <span class="sig-tag">${player.sig ? `✨ ${player.sig.name}` : ''}</span>
-      </div>
-      <div class="heat-container">
-        <div class="heat-fill-neg" style="width: ${player.heat < 0 ? (Math.abs(player.heat) / 10) * 100 : 0}%"></div>
-        <div class="heat-fill-pos" style="width: ${player.heat > 0 ? (player.heat / 10) * 100 : 0}%"></div>
-        <span class="heat-label">HEAT ${player.heat > 0 ? '+' : ''}${player.heat}</span>
+      <div class="momentum-container-hud">
+        <div class="momentum-fill-hud" style="width: ${momPct}%"></div>
+        <span class="momentum-label-hud">MOMENTUM ${p.momentum}</span>
       </div>
       <div class="fitness-container">
-        <div class="fitness-fill ${player.fitness <= 5 ? 'low' : ''}" style="width: ${(player.fitness / (player.maxFitness || 20)) * 100}%"></div>
-        <span class="fitness-label">FITNESS ${player.fitness}/${player.maxFitness}</span>
+        <div class="fitness-fill" style="width: ${(p.fitness / (p.maxFitness || 20)) * 100}%"></div>
+        <span class="fitness-label">FITNESS ${p.fitness}/${p.maxFitness || 20}</span>
       </div>
     </div>
   `;
 }
-import { applySignatureSkill } from '../core/duel.js';
 
 function _renderDilemma(state, human, ai) {
-  const container = document.getElementById('dilemma-container');
-  if (!container) return;
-  container.classList.remove('hidden');
-
-  const intent = state.activeDuel?.aiIntent;
-  const isRes = state.phase === PHASE.RESOLUTION;
-  const res = state.resolution;
-  const actionType = isRes ? res.actionType : (_hoveredAction || (state.possession === 'human' ? 'pass' : 'block'));
-
   const hValEl = document.getElementById('dilemma-val-human');
-  const hLabelEl = document.getElementById('dilemma-label-human');
   const aValEl = document.getElementById('dilemma-val-ai');
+  const hLabelEl = document.getElementById('dilemma-label-human');
   const aLabelEl = document.getElementById('dilemma-label-ai');
+
+  if (!hValEl || !aValEl) return;
+
+  const res = state.resolution;
+  const isRes = state.phase === PHASE.RESOLUTION;
 
   if (isRes && res) {
     // ─── RESOLUTION MODE ───
-    const isHumanAttacker = state.possession === 'human';
+    const hVal = res.isHuman ? res.rolledValue : res.defendValue;
+    const aVal = res.isHuman ? res.defendValue : res.rolledValue;
 
-    if (res.actionType === 'shoot') {
-      if (res.stage === 1) {
-        hLabelEl.textContent = 'Shot';
-        aLabelEl.textContent = res.aiAction || 'Defend';
-        
-        const stage1HumanWon = isHumanAttacker ? (res.stage1Winner === 'attacker') : (res.stage1Winner === 'defender');
-        const finalHuman = isHumanAttacker ? res.rolledValue : res.defendValue;
-        const finalAI = isHumanAttacker ? res.defendValue : res.rolledValue;
+    // 1v0 Logic: Hide AI side if uncontested (EXCEPT if shooting, then show GK)
+    const vsEl = document.getElementById('vs-divider');
+    const aiSideEl = document.getElementById('dilemma-ai');
+    const isShot = res.actionType === 'shoot';
+    if (vsEl) vsEl.style.display = (res.isOneVZero && !isShot) ? 'none' : 'block';
+    if (aiSideEl) aiSideEl.style.display = (res.isOneVZero && !isShot) ? 'none' : 'flex';
 
-        if (res.isBlock) {
-          _animateRoll(hValEl, finalHuman, finalHuman, finalHuman, true, isHumanAttacker ? ` - ${finalAI}` : '');
-          aValEl.textContent = finalAI;
-        } else {
-          _animateRoll(hValEl, 0, 0, finalHuman, stage1HumanWon);
-          aValEl.textContent = finalAI;
-        }
-      } else {
-        hLabelEl.textContent = 'Final Shot';
-        aLabelEl.textContent = 'GK Block';
-        const humanWonResult = isHumanAttacker ? (res.finalWinner === 'attacker') : (res.finalWinner === 'defender');
-        const finalHuman = isHumanAttacker ? res.rolledValue : res.defendValue;
-        const finalAI = isHumanAttacker ? res.defendValue : res.rolledValue;
-
-        _animateRoll(hValEl, 0, 0, finalHuman, humanWonResult);
-        aValEl.textContent = finalAI;
-      }
+    if (!res.isOneVZero) {
+       hValEl.textContent = hVal;
+       aValEl.textContent = aVal;
     } else {
-      const hAction = res.humanAction || actionType;
-      hLabelEl.textContent = hAction;
-      const statKey = _getStatKey(hAction);
-      
-      // Calculate realistic range including buffs AND signature skills
-      let base = human ? (human.stats[statKey].base + (state.activeDuel?.buffs[statKey] ?? 0)) : 0;
-      base = applySignatureSkill(human, hAction, base);
-      const vol = human ? human.volatility : 0;
-      
-      const humanWonResult = isHumanAttacker ? (res.winner === 'attacker') : (res.winner === 'defender');
-      const finalHumanVal = isHumanAttacker ? res.rolledValue : res.defendValue;
-      const finalAIVal = isHumanAttacker ? res.defendValue : res.rolledValue;
-
-      _animateRoll(hValEl, base, base + vol, finalHumanVal, humanWonResult);
-      aValEl.textContent = finalAIVal;
-      aLabelEl.textContent = res.aiAction || (intent ? intent.action : 'Wait');
+       hValEl.textContent = ""; // Blank or "OK"
     }
+
+    // NEWS: Dramatic Aliases (§6.4)
+    let hAlias = res.humanAction;
+    let aAlias = res.aiAction;
+
+    if (res.actionType === 'shoot' && res.stage === 2) {
+      hAlias = res.isHuman ? "POWER STRIKE!" : "GK DIVE!";
+      aAlias = res.isHuman ? "GK DIVE!" : "POWER STRIKE!";
+    }
+
+    hLabelEl.textContent = `${res.attackerName || "Attacker"}: ${hAlias}`;
+    
+    // NEW (§6.4): Multi-Stage & Dramatic Narrative UX (V2.12)
+    const statusText = res.statusText || "";
+    
+    if (res.reflexStatus === 'rolling') {
+      const pct = Math.round((res.reflexChance || 0) * 100);
+      aLabelEl.textContent = `REFLEX ATTEMPT (${pct}%)`;
+      aLabelEl.className = 'd-label pulse-text';
+    } else if (res.reflexStatus === 'saved') {
+      aLabelEl.textContent = statusText || "REFLEX SAVE!";
+      aLabelEl.className = 'd-label miracle-glow';
+    } else if (res.reflexStatus === 'failed') {
+      aLabelEl.textContent = statusText || "REFLEX FAILED!";
+      aLabelEl.className = 'd-label fail-text';
+    } else if (statusText) {
+      // Use the narrator's text if available + Defender name
+      aLabelEl.textContent = `${res.defenderName || "Defender"}: ${statusText}`;
+      aLabelEl.className = 'd-label narrator-text';
+      
+      // Color coding for narrative beats
+      if (statusText.includes("BYPASSED")) aLabelEl.classList.add('win-text');
+      if (statusText.includes("BLOCKED")) aLabelEl.classList.add('fail-text');
+    } else {
+      aLabelEl.textContent = `${res.defenderName || "Defender"}: ${aAlias}`;
+      aLabelEl.className = 'd-label';
+    }
+    
+    const hWon = (res.winner === 'attacker' && res.isHuman) || (res.winner === 'defender' && !res.isHuman);
+    hValEl.className = 'd-val ' + (hWon ? 'win-glow' : 'loss-glow');
+    aValEl.className = 'd-val ' + (!hWon ? 'win-glow' : 'loss-glow');
+    
   } else {
     // ─── NORMAL MODE (PREDICTION) ───
-    if (human) {
-      const statKey = _getStatKey(actionType);
-      let base = human.stats[statKey].base + (state.activeDuel?.buffs[statKey] ?? 0);
-      base = applySignatureSkill(human, actionType, base);
-      const vol = human.volatility;
-      
-      hValEl.innerHTML = `${base}<span class="dim">-${base + vol}</span>`;
-      hLabelEl.textContent = actionType;
-      hValEl.className = 'd-val';
-    }
+    const vsEl = document.getElementById('vs-divider');
+    const aiSideEl = document.getElementById('dilemma-ai');
+    
+    // In 1v0, only show AI side if hovering/choosing a Shoot action
+    const currentAction = _hoveredAction || (state.possession === 'human' ? 'pass' : 'block');
+    const isShoot = currentAction.toLowerCase() === 'shoot';
+    const forceShowAI = state.phase === PHASE.ONE_V_ZERO && isShoot;
+
+    if (vsEl) vsEl.style.display = (state.phase === PHASE.ONE_V_ZERO && !forceShowAI) ? 'none' : 'block';
+    if (aiSideEl) aiSideEl.style.display = (state.phase === PHASE.ONE_V_ZERO && !forceShowAI) ? 'none' : 'flex';
+
+    const intent = state.activeDuel?.aiIntent;
     if (intent) {
-      const aiVal = Math.max(0, intent.value + (state.activeDuel?.buffs.aiValueDelta || 0));
-      aValEl.textContent = aiVal;
+      aValEl.textContent = intent.value;
       aLabelEl.textContent = intent.action;
     } else {
       aValEl.textContent = '--';
       aLabelEl.textContent = 'Wait';
     }
+
+    if (human) {
+      const action = _hoveredAction || (state.possession === 'human' ? 'pass' : 'block');
+      const statKey = _getStatKey(action);
+      const base = (human.stats[statKey] || 0) + (state.activeDuel?.buffs[statKey] || 0);
+      const mom = human.momentum || 0;
+      
+      if (action.toLowerCase() === 'block') {
+        hValEl.textContent = base + mom;
+      } else {
+        hValEl.innerHTML = `${base}${mom > 0 ? `<span class="dim">-${base + mom}</span>` : ''}`;
+      }
+      hLabelEl.textContent = action;
+    } else {
+      hValEl.textContent = '--';
+    }
+    hValEl.className = 'd-val';
+    aValEl.className = 'd-val';
   }
 }
 
-let _rollInterval = null;
-function _animateRoll(el, min, max, final, isWin, suffix = '') {
-  if (_rollInterval) clearInterval(_rollInterval);
-  
-  let ticks = 0;
-  const maxTicks = 12;
-  
-  _rollInterval = setInterval(() => {
-    ticks++;
-    if (ticks < maxTicks) {
-      // Roll random numbers in range
-      const val = min === max ? min : Math.floor(Math.random() * (max - min + 1)) + min;
-      el.textContent = val + suffix;
-      el.className = 'd-val shake-anim';
-    } else {
-      // Show final
-      clearInterval(_rollInterval);
-      el.textContent = final;
-      el.className = 'd-val ' + (isWin ? 'win-glow' : 'loss-glow');
-    }
-  }, 80);
-}
-
-function _hideDilemma() {
-  const container = document.getElementById('dilemma-container');
-  if (container) container.classList.add('hidden');
+export function setHoveredAction(type) {
+  _hoveredAction = type;
+  if (_lastState) renderHUD(_lastState);
 }
 
 function _getStatKey(action) {
-  const map = { dribble: 'DRI', pass: 'PAS', shoot: 'SHO', press: 'AGG', block: 'COM' };
-  return map[action] || 'PAS';
+  const map = { dribble: 'DRI', pass: 'PAS', shoot: 'SHO', press: 'AGG', block: 'COM', save: 'REF' };
+  return map[action ? action.toLowerCase() : ''] || 'PAS';
 }

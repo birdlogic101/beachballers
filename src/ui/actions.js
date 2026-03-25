@@ -1,6 +1,6 @@
 import { setHoveredAction } from './hud.js';
 import { PHASE } from '../core/state.js';
-import { canShoot, canPress, isDribbleLocked, isPassLocked } from '../core/heat.js';
+import { canShoot, canPress, isDribbleLocked, isPassLocked } from '../core/momentum.js';
 
 let _dispatch = null;
 
@@ -62,14 +62,14 @@ export function renderActions(state) {
   }
   const btnShoot = document.getElementById('btn-shoot');
   if (btnShoot) {
-    btnShoot.disabled = !isActionable || !attacker || !canShoot(attacker.heat, state.ballZone);
+    btnShoot.disabled = !isActionable || !attacker || !canShoot(attacker.momentum, state.ballZone);
   }
 
   // Defend Buttons
   const btnPress = document.getElementById('btn-press');
   if (btnPress) {
     const humanDef = state.humans.find(p => p.id === state.activeDuel?.defender);
-    btnPress.disabled = !isActionable || !humanDef || !canPress(humanDef.heat);
+    btnPress.disabled = !isActionable || !humanDef || !canPress(humanDef.momentum);
   }
   const btnBlock = document.getElementById('btn-block');
   if (btnBlock) {

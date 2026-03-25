@@ -1,158 +1,106 @@
 /**
- * players.js — Static player definitions for both squads.
- *
- * Stats format: { base: number, max: number }  (§11 Stat Format)
- * max = base + volatilityRange (default 2), used to check if human can win.
- *
- * Signature skills (§6.5):
- *   huCF — "Clinical"  (Shoot): +3 flat bonus on SHO resolution
- *   huCB — "Sweeper"   (Block): +1 Heat on successful Block
- *   aiGK — "Wall"      (Block): AI GK volatility reduced to 0 on Block saves
+ * players.js — Player Definitions (V2.30 Nightmare AI).
+ * 
+ * CHALLENGE PHILOSOPHY:
+ * - AI Stats are set to 18-20.
+ * - Human Max Base Roll (Stat + 3) cannot beat AI base stats.
+ * - RESULT: Move usage (Red/Blue/Gray) is MANDATORY to win duels.
  */
 
 export const HUMAN_SQUAD = [
   {
-    id: 'huGK', name: 'Torres', kickoffZone: '1B',
+    id: 'huGK', name: 'Poliakov', kickoffZone: '1B',
     stats: {
-      DRI: { base: 2,  max: 4  },
-      PAS: { base: 4,  max: 6  },
-      SHO: { base: 2,  max: 4  },
-      AGG: { base: 14, max: 16 }, // THE MOUNTAIN
-      COM: { base: 15, max: 17 }, // THE MOUNTAIN
-      SPE: 2,
+      PAS: 10, SHO: 6, AGG: 10, COM: 11, DIV: 12, REF: 14, SPE: 4,
     },
-    volatility: 2, heat: 0, fitness: 40, maxFitness: 40, xp: 0, level: 1,
-    number: 1,
-    sig: null,
+    momentum: 0, fitness: 45, maxFitness: 45, number: 1, sig: null,
+    portrait: '/huGK_portrait.png',
   },
   {
-    id: 'huCB', name: 'Diallo', kickoffZone: '2B',
+    id: 'huCB', name: 'Fritz', kickoffZone: '2B',
     stats: {
-      DRI: { base: 5,  max: 7  },
-      PAS: { base: 6,  max: 8  },
-      SHO: { base: 4,  max: 6  },
-      AGG: { base: 12, max: 14 },
-      COM: { base: 13, max: 15 },
-      SPE: 3,
+      DRI: 8, PAS: 10, SHO: 7, AGG: 12, COM: 12, SPE: 5,
     },
-    volatility: 2, heat: 0, fitness: 35, maxFitness: 35, xp: 0, level: 1,
-    number: 4,
+    momentum: 0, fitness: 40, maxFitness: 40, number: 4,
     sig: {
       name: 'Sweeper', action: 'block',
-      effect: { heatBonus: 1 },
+      effect: { momentumBonus: 1 },
     },
+    portrait: '/huCB_portrait.png',
   },
   {
-    id: 'huRB', name: 'Soto', kickoffZone: '3C',
+    id: 'huRB', name: 'Suzuki', kickoffZone: '3C',
     stats: {
-      DRI: { base: 9,  max: 11 },
-      PAS: { base: 10, max: 12 }, // THE ENGINE
-      SHO: { base: 7,  max: 9  },
-      AGG: { base: 8,  max: 10 },
-      COM: { base: 10, max: 12 },
-      SPE: 4,
+      DRI: 10, PAS: 12, SHO: 8, AGG: 11, COM: 11, SPE: 6,
     },
-    volatility: 2, heat: 0, fitness: 45, maxFitness: 45, xp: 0, level: 1,
-    number: 2,
-    sig: null,
+    momentum: 0, fitness: 45, maxFitness: 45, number: 2, sig: null,
+    portrait: '/huRB_portrait.png',
   },
   {
-    id: 'huLW', name: 'Nkosi', kickoffZone: '4A',
+    id: 'huLW', name: 'Junior', kickoffZone: '4A',
     stats: {
-      DRI: { base: 14, max: 16 }, // THE BLUR
-      PAS: { base: 12, max: 14 }, // THE BLUR
-      SHO: { base: 10, max: 12 },
-      AGG: { base: 3,  max: 5  },
-      COM: { base: 4,  max: 6  },
-      SPE: 6,
+      DRI: 14, PAS: 13, SHO: 11, AGG: 8, COM: 8, SPE: 8,
     },
-    volatility: 2, heat: 0, fitness: 12, maxFitness: 12, xp: 0, level: 1,
-    number: 7,
-    sig: null,
+    momentum: 0, fitness: 20, maxFitness: 20, number: 7, sig: null,
+    portrait: '/huLW_portrait.png',
   },
   {
-    id: 'huCF', name: 'Marco', kickoffZone: '5B',
+    id: 'huCF', name: 'Donaldinho', kickoffZone: '5B',
     stats: {
-      DRI: { base: 10, max: 12 },
-      PAS: { base: 8,  max: 10 },
-      SHO: { base: 14, max: 16 }, // THE SPECIALIST
-      AGG: { base: 4,  max: 6  },
-      COM: { base: 5,  max: 7  },
-      SPE: 4,
+      DRI: 11, PAS: 9, SHO: 15, AGG: 8, COM: 9, SPE: 6,
     },
-    volatility: 2, heat: 0, fitness: 18, maxFitness: 18, xp: 0, level: 1,
-    number: 10,
+    momentum: 0, fitness: 25, maxFitness: 25, number: 10,
     sig: {
       name: 'Clinical', action: 'shoot',
       effect: { flatBonus: 3 },
     },
+    portrait: '/huCF_portrait.png',
   },
 ];
 
 export const AI_SQUAD = [
   {
-    id: 'aiGK', name: 'Kovač', kickoffZone: '6B',
+    id: 'aiGK', name: 'Lasagna', kickoffZone: '6B',
     stats: {
-      DRI: { base: 4,  max: 4  },
-      PAS: { base: 10, max: 10 },
-      SHO: { base: 4,  max: 4  },
-      AGG: { base: 13, max: 13 },
-      COM: { base: 16, max: 16 }, // THE WALL
-      SPE: 3,
+      PAS: 11, SHO: 7, AGG: 12, COM: 13, DIV: 19, REF: 13, SPE: 4,
     },
-    volatility: 0, heat: 0, fitness: 30, maxFitness: 30,
-    number: 22,
+    momentum: 0, fitness: 45, maxFitness: 45, number: 22,
     sig: {
       name: 'Wall', action: 'block',
-      effect: { volatilityOverride: 0 },
+      effect: { fixedMax: true },
     },
+    portrait: '/aiGK_portrait.png',
   },
   {
-    id: 'aiCB', name: 'Reyes', kickoffZone: '5B',
+    id: 'aiCB', name: 'McLovin', kickoffZone: '5B',
     stats: {
-      DRI: { base: 6,  max: 6  },
-      PAS: { base: 7,  max: 7  },
-      SHO: { base: 6,  max: 6  },
-      AGG: { base: 15, max: 15 }, // IRON DEFENSE
-      COM: { base: 14, max: 14 },
-      SPE: 3,
+      DRI: 12, PAS: 15, SHO: 22, AGG: 25, COM: 24, SPE: 5,
     },
-    volatility: 0, heat: 0, fitness: 35, maxFitness: 35, number: 5, sig: null,
+    momentum: 0, fitness: 40, maxFitness: 40, number: 5, sig: null,
+    portrait: '/aiCB_portrait.png',
   },
   {
     id: 'aiRB', name: 'Dupont', kickoffZone: '3C',
     stats: {
-      DRI: { base: 10, max: 10 },
-      PAS: { base: 11, max: 11 },
-      SHO: { base: 8,  max: 8  },
-      AGG: { base: 10, max: 10 },
-      COM: { base: 10, max: 10 },
-      SPE: 4,
+      DRI: 20, PAS: 22, SHO: 20, AGG: 22, COM: 22, SPE: 6,
     },
-    volatility: 0, heat: 0, fitness: 25, maxFitness: 25, number: 8, sig: null,
+    momentum: 0, fitness: 35, maxFitness: 35, number: 8, sig: null,
+    portrait: '/aiRB_portrait.png',
   },
   {
-    id: 'aiLW', name: 'Osei', kickoffZone: '4A',
+    id: 'aiLW', name: 'Ping', kickoffZone: '4A',
     stats: {
-      DRI: { base: 15, max: 15 }, // ELITE DRIBBLER
-      PAS: { base: 13, max: 13 },
-      SHO: { base: 10, max: 10 },
-      AGG: { base: 5,  max: 5  },
-      COM: { base: 6,  max: 6  },
-      SPE: 5,
+      DRI: 22, PAS: 25, SHO: 22, AGG: 18, COM: 15, SPE: 7,
     },
-    volatility: 0, heat: 0, fitness: 15, maxFitness: 15, number: 11, sig: null,
+    momentum: 0, fitness: 25, maxFitness: 25, number: 11, sig: null,
+    portrait: '/aiLW_portrait.png',
   },
   {
-    id: 'aiCF', name: 'Pinto', kickoffZone: '2B',
+    id: 'aiCF', name: 'Pong', kickoffZone: '2B',
     stats: {
-      DRI: { base: 10, max: 10 },
-      PAS: { base: 8,  max: 8  },
-      SHO: { base: 15, max: 15 }, // MASTER FINISHER
-      AGG: { base: 5,  max: 5  },
-      COM: { base: 6,  max: 6  },
-      SPE: 4,
+      DRI: 25, PAS: 15, SHO: 25, AGG: 15, COM: 15, SPE: 6,
     },
-    volatility: 0, heat: 0, fitness: 20, maxFitness: 20, number: 9, sig: null,
+    momentum: 0, fitness: 30, maxFitness: 30, number: 9, sig: null,
+    portrait: '/aiCF_portrait.png',
   },
 ];

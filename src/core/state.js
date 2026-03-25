@@ -26,8 +26,8 @@ export const PHASE = {
 export function createInitialState(humanSquad, aiSquad) {
   // Deep-clone squad data so state is self-contained
   // Initialize player zones from their kickoff positions
-  const humans = humanSquad.map(p => ({ ...p, zone: p.kickoffZone, heat: 0, xp: p.xp ?? 0 }));
-  const ais    = aiSquad.map(p =>   ({ ...p, zone: p.kickoffZone, heat: 0 }));
+  const humans = humanSquad.map(p => ({ ...p, zone: p.kickoffZone, momentum: 0, xp: p.xp ?? 0 }));
+  const ais    = aiSquad.map(p =>   ({ ...p, zone: p.kickoffZone, momentum: 0 }));
 
 
   return {

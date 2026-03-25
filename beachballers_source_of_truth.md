@@ -11,11 +11,11 @@ progression.
 ### Move Card Archetypes (V1.5)
 
 - **Red (Vs Press)**: Momentum and Escape.
-  - *Example*: "Full Send" (+8 DRI, -5 Fitness cost).
+  - _Example_: "Full Send" (+8 DRI, -5 Fitness cost).
 - **Blue (Vs Block)**: Accuracy and Setups.
-  - *Example*: "Lobby Pass" (Sets ball to AIR state).
+  - _Example_: "Lobby Pass" (Sets ball to AIR state).
 - **Gray (Defense)**: Mitigation and Stamina.
-  - *Example*: "Iron Lungs" (Recovers Fitness).
+  - _Example_: "Iron Lungs" (Recovers Fitness).
 - **Genre**: Roguelike Soccer.
 - **Theme**: Beach Soccer.
 - **Core Loop**: The game proceeds through a series of 1v1 duels until the end
@@ -46,22 +46,23 @@ progression.
    - Human player triggers an **Exit Action** (Dribble, Pass, Shoot) to resolve
      the duel.
 4. **Resolution (The Dilemma)**:
-   - **The Dilemma Display**: Before any action, the human sees their potential
-     success range (e.g., **Pass 9-11**) directly compared to the **AI Intent**
-     (e.g., **Press 7**). This is the core strategic "puzzle".
-   - **Tactical Typography**: The base stat value is rendered **Bright** (high
-     contrast), while the volatility range is **Dimmed** (lower opacity),
-     emphasizing the most certain outcome (e.g.,
+   - **The Dilemma Display**: Before any action, the human sees their success
+     range (e.g., **Pass 9-11**) directly compared to the **AI Intent** (e.g.,
+     **Press 7**). This is the core strategic "puzzle".
+   - **Tactical Typography**: The attribute value is rendered **Bright** (high
+     contrast), while the momentum roll range is **Dimmed** (lower opacity),
+     emphasizing the base outcome (e.g.,
      **9**<span style="opacity:0.4; font-size:0.8em">-11</span>).
    - **Default Display**: The UI defaults to showing the **Pass** range.
    - **Hover Context**: Hovering over Dribble or Shoot updates the display to
      show that specific action's range.
    - **Defender Advantage**: In case of a tie, the **Defending Action** always
      wins.
-   - **Volatility**: Human player values include a **Volatility Range** (default
-     0-2). Only human actions are subject to volatility; AI actions are fixed.
+   - **Momentum Rolls**: Human player values include an uncertain range based on
+     their current **Momentum** (e.g., if Momentum is +3, the roll is 0-3). AI
+     actions are pre-rolled and visible as a fixed value.
    - **AI ASYMMETRY**: The AI uses a simplified internal system (Slay The Spire
-     style). It has no Playbook, Heat, or Touch Units; its intent is a fixed
+     style). It has no Playbook, Momentum, or Touch Units; its intent is a fixed
      outcome value or flat modifier.
 5. **Outcome**: The duel results in ball movement, player rotation, or
    possession change.
@@ -87,8 +88,8 @@ The field is a vertical grid divided into 6 rows (1-6) and 3 columns (A-B-C).
   - If a **Human Player** is in 3A/3C, they have the role **LB/RB**.
   - If an **AI Player** is in 3A/3C, they have the role **RW/LW** (attacking Row
     1).
-  - **Requirement Logic**: All Heat/Stat requirements are tied to the **Role**
-    currently held by the player in that zone.
+  - **Requirement Logic**: All Momentum/Stat requirements are tied to the
+    **Role** currently held by the player in that zone.
 
 ### Positioning & Formation
 
@@ -104,16 +105,16 @@ The field is a vertical grid divided into 6 rows (1-6) and 3 columns (A-B-C).
 
 - Both teams have 5 players on the field.
 - Every player is assigned to a kickoff zone.
-  - The Human GK (huGK) is assigned to 1B.
-  - The AI GK (aiGK) is assigned to 6B.
-  - The Human CB (huCB) is assigned to 2B.
-  - The AI CB (aiCB) is assigned to 5B.
-  - The Human RB (huRB) is assigned to 3C.
-  - The AI RB (aiRB) is assigned to 4A.
-  - The Human LW (huLW) is assigned to 4A.
-  - The AI LW (aiLW) is assigned to 3C.
-  - The Human CF (huCF) is assigned to 5B.
-  - The AI CF (aiCF) is assigned to 2B.
+  - The Human GK (huGK) is assigned to 1B. (Poliakov)
+  - The AI GK (aiGK) is assigned to 6B. (Lasagna)
+  - The Human CB (huCB) is assigned to 2B. (Fritz)
+  - The AI CB (aiCB) is assigned to 5B. (McLovin)
+  - The Human RB (huRB) is assigned to 3C. (Suzuki)
+  - The AI RB (aiRB) is assigned to 4A. (Dupont)
+  - The Human LW (huLW) is assigned to 4A. (Junior)
+  - The AI LW (aiLW) is assigned to 3C. (Ping)
+  - The Human CF (huCF) is assigned to 5B. (Donaldinho)
+  - The AI CF (aiCF) is assigned to 2B. (Pong)
 
 ### Player position determines player role
 
@@ -139,20 +140,39 @@ The field is a vertical grid divided into 6 rows (1-6) and 3 columns (A-B-C).
 
 ## 4. Player Anatomy
 
-### Base Stats
+### Attributes
 
 Every player has five primary statistics, plus Speed:
 
 #### Player Roles & Archetypes
+
 - **The Mountain (GK/CB)**: High COM/AGG, 0 DRI/PAS. Immovable object.
 - **The Blur (LW)**: Elite DRI/SPE, extremely low Fitness (Glass Cannon).
 - **The Engine (RB)**: Extreme Fitness, balanced fatigue resistance.
-- **The Specialist (CF)**: Highly dependent on Heat (Scales with momentum).
+- **The Specialist (CF)**: Highly dependent on Momentum (Scales with momentum).
 - **DRI (Dribbling)**: Used for Dribble exit actions.
 - **PAS (Passing)**: Used for Pass exit actions.
 - **SHO (Shooting)**: Used for Shoot exit actions.
 - **AGG (Aggression)**: Used for Press defensive actions.
 - **COM (Composure)**: Used for Block defensive actions.
+- **REF (Reflexes)**: Used by **Goalkeepers specifically** for **Reaction
+  Saves** (Long shots).
+
+### 5.1. Human Squad (Team Blue)
+
+- **huGK (Poliakov)**: High DIV, high COM. Defensive anchor.
+- **huCB (Fritz)**: High COM, high AGG. Lane closer.
+- **huRB (Suzuki)**: High PAS, high SPE. Transition specialist.
+- **huLW (Junior)**: Max DRI, high SPE. Chaos creator.
+- **huCF (Donaldinho)**: Max SHO, high DRI. The X-Factor.
+
+### 5.2. AI Squad (Team Orange)
+
+- **aiGK (Lasagna)**: High DIV, high COM. The Italian Wall.
+- **aiCB (McLovin)**: High COM, high AGG. Tenacious marker.
+- **aiRB (Dupont)**: High PAS, high SPE. Dynamic pivot.
+- **aiLW (Ping)**: High DRI, high SPE. Quick-step winger.
+- **aiCF (Pong)**: Max SHO, high DRI. Clinical finisher.
 
 ### Speed & Touch Units
 
@@ -161,39 +181,39 @@ Every player has five primary statistics, plus Speed:
 - **Minimum Value**: A player always has at least **3 Touch Units**, even if
   their SPE stat is lower.
 
-### Volatility
+### Momentum Roll System
 
-Human player stats have a volatility range (Default: 0-2).
+All human actions (except Block) are non-deterministic, governed by a roll range
+derived from the player's current Momentum.
 
-- **Player Stats**: Display **Fixed Base Stats** only (e.g., `11`) for visual
-  clarity.
-- **Dilemma Display**: Displays the **Potential Output Range** (e.g., `11-13`)
-  using "Dimmed Volatility" typography.
-- **Role**: Only human actions are subject to volatility; AI actions are fixed.
+- **The Roll**: `Result = Attribute + Roll(0, Momentum)`.
+- **Momentum Bonus**: If Momentum is +3, the roll adds `0, 1, 2, or 3` to the
+  Attribute.
+- **Start**: Every match begins with all players at **Momentum 0**
+  (Deterministic state).
+- **Dilemma Display**: Displays the **Momentum Output Range** (e.g., `11-13`)
+  using "Dimmed" typography (Attribute is bright, momentum range is dimmed).
 
-### Heat System (Prototype V1.0)
+### Momentum System (Prototype V1.0)
 
-- **Total Range (10 Units)**: Min -3 (Cold) | Max 7 (On Fire).
-- **Visual Representation (Center-Origin)**:
-  - **Heat 0**: The bar is empty.
-  - **Negative (-1 to -3)**: Bar fills from the 0-mark to the LEFT in Blue.
-  - **Positive (+1 to +7)**: Bar fills from the 0-mark to the RIGHT in Yellow/Orange.
+- **Total Range (7 Units)**: Min 0 | Max 7.
+- **Visual Representation**:
+  - **Momentum 0**: The bar is empty.
+  - **Positive (+1 to +7)**: Bar fills to the RIGHT in Yellow/Orange.
 - **Start**: Default 0 at match kickoff. Persistent during match.
 - **Increases**: Successful actions (+1) and certain moves.
-- **Decreases**: Failed actions (-1) and certain moves.
-- **Requirement**: Heat acts as a threshold for many actions (e.g., Shooting access).
-- **GK Heat**: The human GK accumulates Heat exclusively through **saves** (+1
-  per save). The GK also participates in field duels and therefore can gain/lose
-  Heat through normal field actions.
+- **Decreases**: by certain moves (Capped at 0).
+- **Requirement**: Momentum acts as a threshold for many actions (e.g., Shooting
+  access).
+- **GK Momentum**: The human GK accumulates Momentum exclusively through
+  **saves** (+1 per save).
 - **UI Representation**: Displayed as large, prominent bars with a **numeric
   value overlay** (e.g., "HEAT: +2").
+
 ### Fitness System (Prototype V1.0)
 
 - **Bar Range**: 0 (Injured) to Max (Unique per player, e.g., 15-30).
 - **Match Start**: All players start at their unique Max Fitness level.
-- **Press Damage (Attrition)**: If a team in possession fails a duel against a
-  **Press** defense, the attacker takes direct Fitness damage.
-  - **Calculation**: `Fitness Loss = Press_Value - Attacker_Value`.
 - **High Stakes**: If any player's Fitness reaches 0, they are considered
   **Injured**. For Prototype V1.0, an injury results in **Competition Over**.
 - **UI Representation**: Displayed as a secondary bar on HUD player cards.
@@ -251,12 +271,12 @@ match the AI intent filter. No limited hand-size for Prototype V1.0.
 Non-exiting duel actions used for tactical setup.
 
 - **Cost**: 0, 1, 2, 3, or X Touch Units (limited by SPE/Minimum 3).
-- **Requirements**: Heat Threshold (Air/Ground state ignored for Prototype
+- **Requirements**: Momentum Threshold (Air/Ground state ignored for Prototype
   V1.0).
 - **Effects**: Buffs (Stat bonuses for duel or match), Debuffs (value
   reduction).
-- **Worldclass Moves**: Must provide tradeoffs, interact with Heat, or change
-  based on context (lane/zone).
+- **Worldclass Moves**: Must provide tradeoffs, interact with Momentum, or
+  change based on context (lane/zone).
 
 ### 6.2. Exit Actions (Attacking)
 
@@ -272,12 +292,12 @@ Exit actions end the turn immediately. They **do not** cost Touch Units.
     GK zone).
   - **GK Rule (6B)**: Once in a Goal Duel, the attacker cannot pass. They must
     resolve with a **Shoot** action or potentially lose the ball to a GK tackle.
-  - **Targeting (The Heat Driver)**: Your **current Heat** determines the target
-    row:
-    - **Heat < 0**: Pass back `X` rows (Capped at Row 1/Human GK).
-    - **Heat > 0**: Pass forward `X` rows (Capped at Row 6/AI GK).
-    - **Heat = 0 (The Lane Switch)**: Pass to the opposite column in the same
-      row.
+  - **Targeting (The Momentum Driver)**: Your **current Momentum** determines
+    the target row:
+    - **Momentum = 0 (The Lane Switch)**: Pass to the opposite column in the
+      same row.
+    - **Momentum > 0**: Pass forward `X` rows (Capped at Row 6/AI GK).
+    - **Note**: Players with 0 Momentum cannot pass backward.
   - **Rotation Scenarios (The Ripple Effect)**:
     - **Logic**: A progression creates a vacuum. Teammates shift rows to fill it
       (The Ripple).
@@ -288,7 +308,7 @@ Exit actions end the turn immediately. They **do not** cost Touch Units.
         - **huCF**: 5B → **4A** (Vacuum fill). **aiRW** moves from 3A to 4A.
         - **huCB**: 2B → **3C** (Support Shift). **aiLB** moves from 4C to 3C.
         - **huLB**: 3A → **2B** (Cover Shift). **aiCF** remains in 2B.
-    - **Scenario B: huLB passes at Heat 0 (3A → 3C)**:
+    - **Scenario B: huLB passes at Momentum 0 (3A → 3C)**:
       - **Action**: **huLB** passes from 3A to receiver in 3C.
       - **Result**:
         - **huLB**: 3A → **4A**. **aiRW** moves from 3A to 4A.
@@ -296,14 +316,14 @@ Exit actions end the turn immediately. They **do not** cost Touch Units.
           to 3C.
         - **huCB**: remains in 2B. **aiCF** remains in 2B.
         - **huCF**: remains in 5B. **aiCB** remains in 5B.
-    - **Scenario C: huCF (5B) passes at Heat 0 (The Tactical Hand-off)**:
+    - **Scenario C: huCF (5B) passes at Momentum 0 (The Tactical Hand-off)**:
       - **Action**: **huCF** passes from 5B to 5B (remaining in the zone).
       - **Result**:
         - **huRW** (receiver): 4C → **5B** (new CF). **aiCB** stays in 5B.
         - **huCF** (passer): 5B → **4A** (new LW). **aiRW** moves from 3A to 4A.
         - **huCB**: 2B → **3C** (new RB). **aiLB** moves from 4C to 3C.
         - **huLB**: 3A → **2B** (new CB). **aiCF** stays in 2B.
-    - **Scenario D: huCB (2B) passes at Heat 0 (The Defensive Hand-off)**:
+    - **Scenario D: huCB (2B) passes at Momentum 0 (The Defensive Hand-off)**:
       - **Action**: **huCB** passes from 2B to 2B (remaining in the zone).
         Wide-range Ripple.
       - **Result**:
@@ -311,76 +331,182 @@ Exit actions end the turn immediately. They **do not** cost Touch Units.
         - **huCB** (passer): 2B → **3C** (new RB). **aiLB** moves from 4C to 3C.
         - **huCF**: 5B → **4A** (new LW). **aiRW** moves from 3A to 4A.
         - **huRW**: 4C → **5B** (new CF). **aiCB** stays in 5B.
-    - **Scenario E: huGK (1B) passes at Heat 0 (The Roll-out)**:
+    - **Scenario E: huGK (1B) passes at Momentum 0 (The Roll-out)**:
       - **GK rules**: the GK's worst pass option is to pass to 2B. Even if his
-        Heat is below 1, he will always pass to 2B.
+        Momentum is below 1, he will always pass to 2B.
       - **Action**: **huGK** passes from 1B to 2B.
       - **Result**: **Static**. huGK remains in 1B. huCB remains in 2B. (Fixed
         GK role).
 
 - **Shoot**:
-  - **Heat Requirements**: Access depends on zone:
-    - GK (own) zone: 6 Heat. | CB zone: 5 Heat. | LB/RB zone: 4 Heat.
-    - LW/RW zone: 3 Heat. | CF zone: 2 Heat. | Opponent's GK zone: 1 Heat.
+  - **Momentum Requirements**: Access depends on zone:
+    - GK (own) zone: 5 Momentum. | CB zone: 4 Momentum. | LB/RB zone: 3
+      Momentum.
+    - LW/RW zone: 2 Momentum. | CF zone: 1 Momentum. | Opponent's GK zone: 0
+      Momentum.
+  - **AI Mirrored Rule**: For AI players (Team Orange), row requirements are
+    mirrored using `row - 1`. For example, AI Wingers in Row 4 require 3
+    Momentum to shoot.
   - **Constraint**: Locked if max human value < AI intent value.
 
 ### 6.3. Exit Actions (Defending)
 
 - **Press**:
-  - **Requirement**: Minimum 1 Heat.
-  - **Resolution**: Success wins the ball immediately. Failure allows the AI to
-    complete its action at full value.
+  - **Requirement**: Always available (No Momentum lock).
+  - **Resolution (The Gamble)**:
+    - **Final Value**: `Attribute + Roll(0, Momentum)`.
+    - **Success (Press >= Attacker Value)**: Steal ball immediately.
+    - **Successful Steal Outcome**: Own Momentum = Margin (`Press - Attacker`).
+      Opponent Momentum = 0.
+    - **Failure Outcome**: Opponent Momentum = Margin (`Attacker - Press`). Own
+      Momentum = 0.
 - **Block**:
   - **Requirement**: Always available.
-  - **Effect on Dribble**: Success reduces DRI to 0 for next resolution.
-  - **Effect on Pass**: Success sets value to 0 and retrogrades by 2 rows.
-  - **Effect on Shoot**: Success reduces SHO to 0 (ball reaches GK safely).
+  - **Resolution (The Secure)**:
+    - **Final Value**: `Attribute + Momentum`. (Secures max momentum bonus).
+    - **Success (Block >= Attacker Value)**: Steal ball immediately.
+    - **Successful Steal Outcome**: Own Momentum stays at 0. Opponent Momentum
+      = 0.
+    - **GK Exception**: If a **Goalkeeper** successfully blocks a shot/dribble,
+      they gain **+1 Momentum** (Security Bonus) instead of 0.
+    - **Failure Outcome**: Own Momentum stays at 0. Opponent Momentum stays
+      at 0. (Block "contains" momentum).
+- **Momentum (The Pivot)**: Winning a duel generates **Momentum = Margin**.
+  Losing a duel (or turnover) resets momentum to **0** for the loser.
+
+## 11. Momentum System (§Momentum)
+
+The Momentum system represents tactical flow and psychological advantage. It
+scales from **0 to 7**.
+
+### 11.1 Generation
+
+- **Successful Dribble**: Attacker gains `Margin`.
+- **Successful Pass**: Receiver gains `Margin`.
+- **Successful Steal (Press/Block)**: New Possessor gains `Margin`.
+- **Successful Save**: Goalkeeper gains `Margin`.
+
+### 11.2 Persistence & Reset
+
+- **Persistence**: Momentum remains through successful chains (Pass transfers it
+  to the receiver).
+- **Reset to 0**: Loser of any duel resets to 0.
+- **Goal Scored**: Full squad reset to 0 after a goal.
+- **Capping**: Strictly capped at 7.
+
+### 11.3 Effects
+
+- **Attacker**: Rolls `1d[0, Momentum]` as a flat bonus.
+- **Defender**: Uses full `Momentum` as a flat bonus (Secure Max).
 
 ### 6.4. Goalkeeper System (Shot Defense)
 
-When an attacker shoots, the Goalkeeper (GK) defends. The interaction depends on
-whether the attacker is in the GK's zone.
+When an attacker shoots, it's a two-stage resolution:
 
-#### 1v1 Goal Duel (Attacker in 1B or 6B)
+1. **Stage 1**: The defender in the zone (CB/LB/RB) attempts a **Block** or
+   **Press**.
+2. **Stage 2**: If the shot bypasses Stage 1, the **Goalkeeper (GK)** defends.
 
-A full duel sequence occurs. **The AI GK's intent (Press or Block) is revealed
-at the start of the duel**, allowing the human to counter it with Moves.
-Goalkeepers use **AGG** for Press and **COM** for Block.
+- **Primary Defense (Diving)**: The GK uses their **DIV** (Diving) attribute.
+- **Secondary Defense (Reflexes)**: A miracle "last-ditch" save mechanic.
 
-- **Press (The Gamble)**:
-  - **Attributes**: Higher volatility range (e.g., 0-4).
-  - **Success**: No goal. The GK claims the ball and enters a **1v0 state** in
-    his zone (The big payout).
-  - **Failure**: Goal scored. Higher Heat/morale penalty.
-- **Block (The Tax)**:
-  - **Attributes**: Lower volatility range (e.g., 0-1).
-  - **Success**: No goal. The GK claims the ball but enters a **new 1v1 duel**
-    in his zone against the same attacker (The 'tax' of staying on the line).
-  - **Failure**: Goal scored. Normal penalty.
+#### 6.4.1. The Reflex Save & Resolution Flow (§Reflex)
 
-#### Reaction Save (Attacker Outside 1B or 6B)
+Shooting is a sequential multi-stage event designed for tactical clarity:
 
-If an attacker shoots from Row 2, 3, 4, or 5 (and passes the field-player's
-block), the GK triggers a **Reaction Save**. This is a simplified resolution to
-keep the match flow fast.
+1. **Stage 1: Field Challenge**: The ball must bypass the zone's defender
+   (Block/Press).
+   - **1v0 Rule**: If a zone is uncontested, the shot automatically passes
+     Stage 1 ("UNCONTESTED SHOT!") but **must** still resolve Stage 2 against the
+     opponent's Goalkeeper.
+2. **Transition**: A "Dramatic Pause" (1.5s) occurs if the shot is successful.
+3. **Stage 2: Goal Challenge**: The ball reaches the GK's Diving (DIV) zone.
+
+- **Dramatic Labels**:
+  - **Attacker**: "POWER STRIKE!"
+  - **Goalkeeper**: "GK DIVE!"
+  - **Success State**: "DEFENDER BYPASSED!" or "GOAL SCORED!"
+  - **Failure State**: "STRIKE BLOCKED!" or "SHOT SAVED!"
+
+- **Reflex Check**: If `Shot > DIV`, a miracle check triggers automatically
+  based on the GK's **Reflexes (REF)**.
+- **Visual States**:
+  - **REFLEX ATTEMPT**: HUD flashes the probability percentage
+    (`1 / margin + 1`).
+  - **REFLEX SAVE**: Success! GK matches shot value (visually updating to match
+    `rolledValue`), goal is prevented.
+  - **REFLEX FAILED**: Failure! Shot is too powerful, goal is confirmed.
+
+- **Probabilities**:
+  - Margin 1: 50% chance.
+  - Margin 2: 33% chance.
+  - Margin 3: 25% chance.
+  - Margin 4: 20% chance.
+
+### 6.5. Attributes Overview
+
+- **DRI**: Dribbling / Close Control.
+- **PAS**: Passing / Vision.
+- **SHO**: Power / Finishing.
+- **AGG**: Pressing / Physicality.
+- **COM**: Blocking / Positioning.
+- **DIV**: Goalkeeper Diving / Area Coverage. **Primary** attribute for standard
+  saves.
+- **REF**: Goalkeeper Reflexes / Reaction Speed. **Secondary** attribute used
+  strictly for **Miracle Reflex Saves** calculation.
+- **SPE**: Movement Speed / Recovery.
+
+#### 6.4.2. Uncontested Distribution (1v0 Phase)
+
+When a Goalkeeper successfully saves the ball (flipping possession), they enter
+an **uncontested 1v0 state**. 
+
+**Recovery Drop Rule (§10.2)**: 
+To ensure the Goalkeeper has space to distribute, any attacker who loses
+possession in a Goal Zone (1B or 6B) must immediately retreat to the secondary
+row (Row 2 for AI, Row 5 for Human). 
+- **Effect**: The GK always starts their rollout in an uncontested 1v0 state.
+
+- **UX**: The HUD hides the opposing "Intent" side and the "VS" divider.
+- **Label**: Displays **"UNCONTESTED DISTRIBUTION"**.
+- **Actions**: The GK can choose any exit action (Pass/Shoot/Dribble) which will
+  resolve automatically as a success (Stage 0).
+- **Momentum**: Graciously grants a flat **+1 Momentum** to the receiver (on
+  pass) or attacker (on dribble).
+
+### 6.5. Attributes Overview
 
 - **The Logic**:
-  - GK uses **COM** + default volatility (if Human).
-  - No distance bonuses (handled via Heat requirements).
+  - GK uses **REF** + Momentum Roll (if Human).
   - **Asymmetry**:
-    - **Human GK**: Resolution = `Base Stats + Volatility Roll` vs
-      `Fixed AI Shot`.
-    - **AI GK**: Resolution = `Fixed AI Stats` vs
-      `Human Shot + Volatility Roll`.
+    - **Human GK**: Resolution = `REF + Roll(0, Momentum)` vs
+      `Fixed AI Shot/Muffled Shot`.
+    - **AI GK**: Resolution = `Fixed AI REF + Roll(0, AI_Momentum)` (Fixed) vs
+      `Human Shot + Roll(0, Momentum)`.
   - **Result**:
     - **Save**: Ball is caught or parried. GK enters a **1v0 state** in his
       zone.
-    - **Goal**: Shot value exceeds GK defense.
+    - **Outcome**: Gain `Margin (GK - Shot)` as Momentum.
+    - **Goal**: Shot value exceeds GK defense. GK Momentum resets to 0.
 
-> [!NOTE]
-> **Defending the Duel First**: The field-player's defensive action
-> (Press/Block) always resolves **before** the shot reaches the GK. A successful
-> field-block cancels the shot entirely.
+- **Press (The Tackle/Gamble)**:
+  - **Resolution**: `Attributes + Roll(0, Momentum)` vs
+    `Attributes + Roll(0, Momentum)`.
+  - **Success (Win)**: **Clean Interception**. Ball is stolen immediately. No
+    shot reaches the GK.
+  - **Failure (Loss)**: **Full Power Shot**. The defender is bypassed. The shot
+    reaches the GK at its **Full Rolled Value**.
+  - **Momentum**: Attacker gains the `Margin (Shot - Press)` as Momentum for the
+    shot against the GK.
+- **Block (The Screen/Secure)**:
+  - **Resolution**: `Attributes + Momentum` (Fixed).
+  - **Success (Win)**: **Blocked Shot**. Shot is stopped cleanly. No shot
+    reaches the GK.
+  - **Failure (Loss)**: **Muffled Shot (Partial Block)**. The defender didn't
+    stop the shot, but they "absorbed" its power.
+  - **Calculation**: `Remaining Shot Power = Attacker Value - Defender Value`.
+    This power is what reaches the GK.
+  - **Momentum**: No margin-based momentum is generated.
 
 ### 6.5. Signature Skills
 
@@ -390,12 +516,12 @@ resolution of a specific exit action (Dribble, Pass, Shoot).
 
 **Prototype V1.0 Skill Roster**:
 
-- **huCF — "Clinical"** _(Shoot)_: On Shoot exit, add +3 flat bonus to the final
-  SHO value used in resolution.
-- **huCB — "Sweeper"** _(Block)_: On a successful Block, gain +1 Heat (instead
-  of the standard 0 for a defensive action).
-- **aiGK — "Wall"** _(Block)_: On Block, the AI GK's volatility range is reduced
-  to 0 (fixed value). Makes the AI GK extremely consistent on block saves.
+- **huCF (Donaldinho) — "Clinical"** _(Shoot)_: On Shoot exit, add +3 flat bonus
+  to the final SHO value used in resolution.
+- **huCB (Fritz) — "Sweeper"** _(Block)_: On a successful Block, gain +1
+  Momentum (instead of the standard 0 for a defensive action).
+- **aiGK (Lasagna) — "Wall"** _(Block)_: On Block, the AI GK's fixed COM value
+  is always treated at its maximum possible pre-rolled value.
 
 ---
 
@@ -522,7 +648,7 @@ A **1v0 state** occurs when a GK wins the ball via a **Press save** or a
   - **Pass** (default): GK passes to 2B (the CB). Formation is static — no
     Ripple.
   - **Dribble**: GK dribbles forward.
-  - **Shoot**: Requires the GK zone Heat threshold (6 Heat).
+  - **Shoot**: Requires the GK zone Momentum threshold (6 Momentum).
 
 ---
 
@@ -572,15 +698,30 @@ A **1v0 state** occurs when a GK wins the ball via a **Press save** or a
 
 ### 10.2. Duel HUD (Player Cards)
 
-- **Left Card**: Human Name, Icon, Stat sheet, and **Heat Bar** (styled as a
+- **Left Card**: Human Name, Icon, Stat sheet, and **Momentum Bar** (styled as a
   high-fidelity progress bar).
-- **Right Card**: AI Name, Icon, Stat sheet, and **Heat Bar**.
+- **Right Card**: AI Name, Icon, Stat sheet, and **Momentum Bar**.
 - **AI Intent**: Current intention (Action + Fixed Value) displayed in big,
   prominent typography.
 - **The Dilemma**: The central prime UI value showing "Human Action [Range] vs
   AI Intent [Value]".
+- **Goalkeeper Preview (§10.4)**: Defending team shows a dimmed secondary card
+  of their GK to signal the two-stage shot threat.
 - **GK Save State**: After a save, the GK enters a "Reset Duel" state where they
   are the ball-holder in their own zone.
+
+### 10.4. Goalkeeper Preview
+
+To emphasize the multi-stage nature of goal resolutions, the HUD displays a
+"Shadow" card of the defending team's Goalkeeper.
+
+- **Placement**: Sits adjacent to the active defender on the defensive side of
+  the arena.
+- **Visuals**: Dimmed (45% opacity), scaled down (0.8x), and slightly
+  grayscaled.
+- **Content**: Displays the GK's **DIV** attribute.
+- **Behavior**: Auto-hides if the Goalkeeper is already the active participant
+  in the duel.
 
 ### 10.3. Visual Flourish
 
@@ -590,17 +731,21 @@ A **1v0 state** occurs when a GK wins the ball via a **Press save** or a
 
 ## 11. Developer Notes & Edge Cases
 
-- **Stat Format**: Stats stored as `Base-Max` (e.g., `11-13`).
-- **Resolution Sequence**: (1) Human rolls volatility → gets final attack value.
-  (2) Compare rolled value vs AI fixed intent value. (3) Apply tie-break rule.
-- **Tie-Break**: Defending value `>=` Attacking value = Success for the
-  Defender. (Attacker must strictly exceed Defender value to win).
-- **Press at Heat 0**: Press requiring minimum 1 Heat on turn 1 (Heat=0) is
-  **intentional design**. Players must use Moves or earn Heat via successful
-  actions to unlock Press.
-- **Formation Interception**: If a player is left without a 1v1 marker due to
-  erratic movement logic, the nearest logical opponent is "snapped" into their
-  zone to force a duel.
+- **Stat Format**: Stats stored as `Attribute-Max` (e.g., `11-13`).
+- **Resolution Sequence**: (1) Human roll range calculated based on Momentum.
+  (2) Outcome is rolled and compared vs AI pre-rolled fixed value. (3) Apply
+  resolution (Success/Failure/Momentum Transfer).
+- **Momentum System (The Universal Multiplier)**: Scaled 0-7. See §11 for
+  persistence rules.
+- **AI AI (The Transparent Opponent)**:
+  - AI Intent values are **pre-rolled**. The human sees the final
+    `Attribute + Roll(0, AI_Momentum)` value before acting.
+- **Reflex Sync**: Ensure `_calculateReflex` uses `Math.ceil(shot)` and
+  `Math.floor(DIV)` to maintain integer margins.
+- **Recovery Drop Verification**: Possession flips in 1B/6B force the former
+  attacker to Row 2/5 to prevent "GK-Stall" duels.
+- **Mandatory Challenge**: All SHOOT actions force Stage 2 (Goal Challenge) even
+  if Stage 1 (Field) is uncontested (1v0).
 
 ---
 

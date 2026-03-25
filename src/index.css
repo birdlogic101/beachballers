@@ -7,12 +7,19 @@
 
 :root {
   /* Colors */
-  --bg-deep:      #05080c;
-  --accent:       #f5c842;
-  --sand:         #c4a46b;
-  --glass:        rgba(255, 255, 255, 0.05);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --heat-hot:     #ff4820;
+  --bg-deep:           #080a0f;
+  --accent:            #f5c842;
+  --sand:              #d4b27a;
+  --glass:             rgba(255, 255, 255, 0.05);
+  --glass-border:      rgba(255, 255, 255, 0.12);
+  --momentum-gold:     #f5c842;
+  --momentum-amethyst: #9b59b6;
+  --momentum-glow-col: rgba(245, 200, 66, 0.5);
+
+  /* Move Colors */
+  --color-red:   #ff4757;
+  --color-blue:  #1e90ff;
+  --color-gray:  #747d8c;
 
   /* Layout */
   --topbar-h:   140px;
@@ -71,8 +78,8 @@ body {
 
 .top-player-info {
   pointer-events: auto; /* Re-enable for cards */
-  width: 400px;
-  height: 120px;
+  width: 420px;
+  height: 140px;
   background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
   border: 1px solid var(--glass-border);
   border-radius: 16px;
@@ -139,48 +146,41 @@ body {
 
 .mini-stat-val { color: #fff; opacity: 1; margin-left: 2px; font-size: 11px; }
 
-/* Heat Bar (10 Units, -3 to 7) */
-.heat-container {
-  width: 100%;
-  height: 14px;
-  background: rgba(0,0,0,0.5);
-  border-radius: 6px;
-  margin-top: 6px;
-  overflow: hidden;
-  position: relative;
-  border: 1px solid rgba(255,255,255,0.1);
-}
-
+/* Momentum Bar (0-7 Units) */
+.momentum-container-hud,
 .fitness-container {
   width: 100%;
-  height: 14px;
-  background: rgba(0,0,0,0.5);
-  border-radius: 6px;
-  margin-top: 6px;
+  height: 16px;
+  background: rgba(0,0,0,0.6);
+  border-radius: 4px;
+  margin-top: 8px;
   overflow: hidden;
   position: relative;
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.15);
 }
 
-.heat-fill-neg {
+.momentum-fill-hud {
   position: absolute;
   top: 0;
-  right: 70%; /* Anchored at the 0-mark (30% from left) */
+  left: 0;
   height: 100%;
-  background: linear-gradient(to left, #4834d4, #1e3799);
-  transition: width 0.4s ease-out;
+  background: linear-gradient(90deg, var(--momentum-amethyst), var(--momentum-gold));
+  transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 0 10px var(--momentum-gold);
 }
 
-.heat-fill-pos {
+.momentum-fill-hud::after {
+  content: '';
   position: absolute;
+  right: 0;
   top: 0;
-  left: 30%; /* Anchored at the 0-mark (30% from left) */
+  width: 4px;
   height: 100%;
-  background: linear-gradient(to right, #f0932b, #eb4d4b);
-  transition: width 0.4s ease-out;
+  background: #fff;
+  box-shadow: 0 0 15px #fff;
 }
 
-.heat-label {
+.momentum-label-hud {
   position: absolute;
   inset: 0;
   display: flex;
@@ -287,8 +287,34 @@ body {
   height: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  gap: 120px; /* Fixed space for the dilemma in the middle */
   padding: 0 40px;
+  position: relative;
+}
+
+.actor-group {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+}
+
+#actor-human-gk {
+  position: absolute;
+  left: -155px; /* Sits to the left of main card */
+}
+
+#actor-ai-gk {
+  position: absolute;
+  right: -155px; /* Sits to the right of main card */
+}
+
+.secondary-preview {
+  opacity: 0.45;
+  transform: scale(0.8);
+  pointer-events: none;
+  filter: grayscale(0.5);
+  transition: opacity 0.4s ease, transform 0.4s ease;
 }
 
 .duel-actor {
@@ -296,13 +322,15 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  width: 150px; /* Super compact */
+  width: 140px; /* Slimmed down for group layout */
   cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.05); /* Original border */
+  background: rgba(255, 255, 255, 0.03); /* Original subtle background */
   transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-#actor-human { transform: translateX(180px); }
-#actor-ai    { transform: translateX(-180px); }
+#actor-human { transform: none; }
+#actor-ai    { transform: none; }
 
 .portrait-wrap {
   width: 150px;
@@ -323,12 +351,24 @@ body {
   transition: transform 0.3s ease;
 }
 
-.heat-glow {
+.momentum-glow {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  box-shadow: inset 0 0 60px rgba(245, 200, 66, 0);
-  transition: box-shadow 0.4s;
+  box-shadow: inset 0 0 60px rgba(155, 89, 182, 0);
+  transition: box-shadow 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+  mix-blend-mode: screen;
+}
+
+.momentum-active .momentum-glow {
+  box-shadow: inset 0 0 80px var(--momentum-glow-col);
+  animation: pulse-momentum 2s infinite ease-in-out;
+}
+
+@keyframes pulse-momentum {
+  0% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+  100% { opacity: 0.4; }
 }
 
 /* VS Divider */
@@ -397,16 +437,16 @@ body {
   font-weight: 900;
 }
 
-/* ── Heat Bars ───────────────────────────────────────────────────── */
-.heat-bar-container {
+/* ── Momentum Bars ────────────────────────────────────────────────── */
+.momentum-bar-container {
   display: none; /* Moved to top corner info panels */
 }
 
 .fitness-fill {
   height: 100%;
-  background: linear-gradient(90deg, #44bd32, #4cd137);
+  background: linear-gradient(90deg, #2ecc71, #27f547);
   transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
-  box-shadow: 0 0 15px rgba(76, 209, 55, 0.3);
+  box-shadow: 0 0 20px rgba(39, 245, 71, 0.4);
 }
 
 .fitness-fill.low {
@@ -414,7 +454,7 @@ body {
   box-shadow: 0 0 15px rgba(232, 65, 24, 0.3);
 }
 
-.heat-value {
+.momentum-value {
   position: absolute;
   width: 100%;
   text-align: center;
@@ -431,6 +471,11 @@ body {
   align-items: center;
   gap: 40px;
   z-index: 5;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(10px);
+  padding: 20px 40px;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.1);
 }
 
 .dilemma-side {
@@ -587,7 +632,7 @@ body {
   color: var(--accent);
 }
 
-.m-heat-req {
+.m-momentum-req {
   font-size: 10px;
   font-weight: 700;
   color: #ff9f43;
@@ -797,4 +842,43 @@ body {
   transition: opacity 0.2s, color 0.2s;
 }
 
-.hidden { display: none !important; }
+.hidden { display: none; }
+
+/* --- Shooting & Reflex Effects --- */
+.miracle-glow {
+  color: #00ff88 !important;
+  text-shadow: 0 0 10px #00ff88, 0 0 20px #00ff88;
+  animation: miracle-shimmer 0.5s infinite alternate;
+  font-weight: bold;
+}
+
+.pulse-text {
+  color: #ffcc00 !important;
+  animation: pulse-simple 0.6s infinite ease-in-out;
+}
+
+.fail-text {
+  color: #ff4d4d !important;
+  opacity: 0.9;
+}
+
+.win-text {
+  color: #00ff88 !important;
+  text-shadow: 0 0 10px rgba(0,255,136,0.3);
+}
+
+.narrator-text {
+  color: var(--accent);
+  letter-spacing: 1.5px;
+  font-style: italic;
+}
+
+@keyframes miracle-shimmer {
+  from { transform: scale(1); filter: brightness(1); }
+  to { transform: scale(1.1); filter: brightness(1.5); }
+}
+
+@keyframes pulse-simple {
+  from { opacity: 1; }
+  to { opacity: 0.5; }
+}

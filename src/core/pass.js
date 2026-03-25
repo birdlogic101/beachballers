@@ -1,12 +1,11 @@
 /**
- * pass.js — Heat-driven pass targeting (§6.2 Pass System).
+ * pass.js — Momentum-driven pass targeting (§6.2 Pass System).
  *
  * KEY RULES:
- *  - Heat > 0 : pass forward X rows (capped at row 5 for field, not 6B)
- *  - Heat < 0 : pass back X rows (capped at row 2 for field; GK always to 2B)
- *  - Heat = 0 : lane switch — same row, opposite column
- *  - GK EXCEPTION: GK at 1B always passes to 2B regardless of Heat (§6.2 Scenario E)
- *  - Locked in zone 6B (handled by heat.isPassLocked)
+ *  - Momentum > 0 : pass forward X rows (capped at row 5 for field, not 6B)
+ *  - Momentum = 0 : lane switch — same row, opposite column
+ *  - GK EXCEPTION: GK at 1B always passes to 2B regardless of Momentum (§6.2 Scenario E)
+ *  - Locked in zone 6B (handled by momentum.isPassLocked)
  */
 
 /** Zone → row number */
@@ -16,7 +15,7 @@ const rowOf = z => parseInt(z[0]);
 const colOf = z => z.slice(1);
 
 /**
- * The "opposite column" in the same row for a Heat=0 lane switch.
+ * The "opposite column" in the same row for a Momentum=0 lane switch.
  * Row 3 and 4 have A and C as the two options.
  * Rows 2 and 5 only have B — no meaningful lane switch possible.
  */
@@ -51,17 +50,18 @@ export function getPassTarget(state, fromZone) {
      if (t5B) return '5B';
   }
 
-  const heat = passer.heat || 0;
+  const momentum = passer.momentum || 0;
   const row = rowOf(fromZone);
   let targetRow;
 
-  if (heat === 0) {
+  if (momentum === 0) {
     // Lane Switch or Small movement
     targetRow = row;
-  } else if (isHuman) {
-    targetRow = Math.min(5, Math.max(2, row + heat));
   } else {
-    targetRow = Math.min(5, Math.max(2, row - heat));
+    // Forward movement (Human: +, AI: -)
+    targetRow = isHuman 
+      ? Math.min(5, row + momentum) 
+      : Math.max(2, row - momentum);
   }
 
   // Find teammate closest to targetRow (but not the passer)

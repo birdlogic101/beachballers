@@ -41,19 +41,25 @@
         <div id="duel-scene">
           <div id="possession-ball" class="hidden">⚽</div>
           <!-- Human Side -->
-          <div id="actor-human" class="duel-actor">
-            <div class="portrait-wrap">
-              <img id="img-portrait-human" src="/human_player_portrait.png" alt="Human" />
-              <div class="heat-glow"></div>
-              <div class="heat-bar-container">
-                <div class="heat-bar-fill" id="heat-fill-human"></div>
-                <span class="heat-value" id="heat-val-human">0</span>
+          <div id="actor-human-group" class="actor-group">
+            <div id="actor-human-gk" class="duel-actor secondary-preview hidden">
+              <div class="portrait-wrap">
+                <img src="" alt="GK" />
+              </div>
+              <div class="actor-info">
+                <div class="actor-stats stat-grid"></div>
               </div>
             </div>
-            <div class="actor-info">
-              <h2 class="p-name">Marco</h2>
-              <div class="actor-stats stat-grid">
-                <!-- Populated by JS -->
+            <div id="actor-human" class="duel-actor">
+              <div class="portrait-wrap">
+                <img id="img-portrait-human" src="/human_player_portrait.png" alt="Human" />
+                <div class="momentum-glow"></div>
+              </div>
+              <div class="actor-info">
+                <h2 class="p-name">Marco</h2>
+                <div class="actor-stats stat-grid">
+                  <!-- Populated by JS -->
+                </div>
               </div>
             </div>
           </div>
@@ -72,24 +78,28 @@
           </div>
 
           <!-- AI Side -->
-          <div id="actor-ai" class="duel-actor">
-            <div class="portrait-wrap">
-              <img id="img-portrait-ai" src="/ai_player_portrait.png" alt="AI" />
-              <div class="heat-glow"></div>
-              <div class="heat-bar-container">
-                <div class="heat-bar-fill" id="heat-fill-ai"></div>
-                <span class="heat-value" id="heat-val-ai">0</span>
+          <div id="actor-ai-group" class="actor-group">
+            <div id="actor-ai" class="duel-actor">
+              <div class="portrait-wrap">
+                <img id="img-portrait-ai" src="/ai_player_portrait.png" alt="AI" />
+                <div class="momentum-glow"></div>
+              </div>
+              <div class="actor-info">
+                <h2 class="p-name">Reyes</h2>
+                <div class="actor-stats stat-grid">
+                  <!-- Populated by JS -->
+                </div>
               </div>
             </div>
-            <div class="actor-info">
-              <h2 class="p-name">Reyes</h2>
-              <div class="actor-stats stat-grid">
-                <!-- Populated by JS -->
+            <div id="actor-ai-gk" class="duel-actor secondary-preview hidden">
+              <div class="portrait-wrap">
+                <img src="" alt="GK" />
+              </div>
+              <div class="actor-info">
+                <div class="actor-stats stat-grid"></div>
               </div>
             </div>
           </div>
-        </div>
-
         </div>
       </main>
 

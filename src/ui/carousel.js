@@ -1,6 +1,6 @@
 /**
  * carousel.js — Move Card Carousel renderer (Horizontal).
- * Filters cards by AI intent color (§5) and handles TU/Heat cost lock.
+ * Filters cards by AI intent color (§5) and handles TU/Momentum cost lock.
  */
 
 import { MOVES } from '../data/moves.js';
@@ -27,7 +27,7 @@ export function renderCarousel(state) {
 
   // Filter moves by AI intent color (if any)
   const intent = state.activeDuel?.aiIntent;
-  const intentColor = intent ? INTENT_TO_MOVE_COLOR[intent.action] : null;
+  const intentColor = intent ? INTENT_TO_MOVE_COLOR[intent.action.toLowerCase()] : null;
   const hand = state.activeDuel?.moveHand ?? [];
   
   const available = intentColor 
@@ -36,9 +36,9 @@ export function renderCarousel(state) {
 
   const currentTU = state.activeDuel?.touchUnits ?? 0;
   
-  // Find active human player to check Heat
+  // Find active human player to check Momentum
   const human = state.humans.find(p => p.id === state.activeDuel?.attacker || p.id === state.activeDuel?.defender);
-  const currentHeat = human ? human.heat : 0;
+  const currentMomentum = human ? human.momentum : 0;
 
   const tuBanner = document.getElementById('tu-banner');
   const tuVal = document.getElementById('tu-active-val');
@@ -50,7 +50,7 @@ export function renderCarousel(state) {
   wrap.innerHTML = '';
   available.forEach(move => {
     const card = document.createElement('article');
-    const isAffordable = (currentTU >= move.tuCost) && (currentHeat >= (move.heatReq || 0));
+    const isAffordable = (currentTU >= move.tuCost) && (currentMomentum >= (move.momentumReq || 0));
     
     card.className = `move-card ${!isAffordable ? 'disabled' : ''}`;
     card.dataset.id = move.id;
@@ -61,7 +61,7 @@ export function renderCarousel(state) {
       <div class="m-desc">${_moveDesc(move)}</div>
       <div class="m-cost-footer">
         <span class="m-tu-cost">${move.tuCost} TU</span>
-        ${move.heatReq ? `<span class="m-heat-req">+${move.heatReq} H</span>` : ''}
+        ${move.momentumReq ? `<span class="m-momentum-req">+${move.momentumReq} M</span>` : ''}
       </div>
     `;
 
@@ -77,7 +77,7 @@ function _moveDesc(move) {
   const parts = [];
   const ef = move.effect;
   if (ef.stat) parts.push(`+${ef.bonus} ${ef.stat}`);
-  if (ef.heatDelta) parts.push(`${ef.heatDelta > 0 ? '+' : ''}${ef.heatDelta} Heat`);
+  if (ef.momentumDelta) parts.push(`${ef.momentumDelta > 0 ? '+' : ''}${ef.momentumDelta} Momentum`);
   if (ef.fitnessDelta) parts.push(`${ef.fitnessDelta > 0 ? '+' : ''}${ef.fitnessDelta} Fit`);
   if (ef.aiValueDelta) parts.push(`${ef.aiValueDelta} AI`);
   if (ef.ballState === 'AIR') parts.push('↑ AIR');
